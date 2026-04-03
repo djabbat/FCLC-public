@@ -1,0 +1,47 @@
+# ── Rust build artifacts ──────────────────────────────────
+/target/
+Cargo.lock
+*.rs.bk
+*.pdb
+
+# ── Shared libraries / binaries ───────────────────────────
+*.exe
+*.dll
+*.so
+*.dylib
+
+# ── Python virtual environment ────────────────────────────
+venv/
+.venv/
+env/
+.env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+
+# ── Jupyter ───────────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb
+
+# ── Секреты ───────────────────────────────────────────────
+.env
+*.env
+.aim_env
+
+# ── IDE / OS ──────────────────────────────────────────────
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# ── Логи / временные файлы ───────────────────────────────
+*.log
+*.tmp
+*.temp
