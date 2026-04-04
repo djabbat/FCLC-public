@@ -84,14 +84,41 @@ impl OrchestratorClient {
     }
 
     /// Submit a model update to the orchestrator.
+    ///
+    /// Retries up to `MAX_SUBMIT_RETRIES` times on network errors (connection
+    /// refused, timeout) with exponential backoff. HTTP 4xx/5xx errors are NOT
+    /// retried — they indicate a protocol or server-side problem.
     pub fn submit_update(&self, payload: ModelUpdatePayload) -> Result<()> {
+        const MAX_SUBMIT_RETRIES: u32 = 3;
+        const BASE_BACKOFF_MS: u64 = 1_000;
+
         let url = format!("{}/api/nodes/{}/update", self.base_url, self.node_id);
-        self.client
-            .post(&url)
-            .json(&payload)
-            .send()
-            .context("Failed to submit model update")?;
-        Ok(())
+        let mut last_err = anyhow::anyhow!("submit_update: no attempts made");
+
+        for attempt in 0..=MAX_SUBMIT_RETRIES {
+            if attempt > 0 {
+                let wait_ms = BASE_BACKOFF_MS * (1 << (attempt - 1)); // 1s, 2s, 4s
+                std::thread::sleep(std::time::Duration::from_millis(wait_ms));
+            }
+
+            match self.client.post(&url).json(&payload).send() {
+                Ok(resp) if resp.status().is_success() => return Ok(()),
+                Ok(resp) => {
+                    // HTTP error — do not retry (4xx = client bug, 5xx = server fault).
+                    return Err(anyhow::anyhow!(
+                        "Orchestrator returned HTTP {}", resp.status()
+                    ));
+                }
+                Err(e) => {
+                    // Network-level error (timeout, connection refused) — retry.
+                    last_err = anyhow::anyhow!(
+                        "Network error on attempt {}/{}: {}", attempt + 1, MAX_SUBMIT_RETRIES + 1, e
+                    );
+                }
+            }
+        }
+
+        Err(last_err.context("submit_update failed after all retries"))
     }
 
     /// Download the current global model from the orchestrator.

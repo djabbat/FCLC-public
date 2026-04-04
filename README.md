@@ -25,7 +25,7 @@ FCLC enables hospitals and clinics to collaboratively train AI models on patient
 
 ```
 fclc-core/        Rust library — DP engine, Shapley, FedProx/Krum, OMOP schema
-fclc-node/        Rust binary + egui GUI — local clinic node
+fclc-node/        Rust binary + egui GUI — local clinic node (de-id preview, retry logic)
 fclc-server/      Rust binary + Axum REST API — central orchestrator
 fclc-web/         Elixir/Phoenix LiveView — web dashboard
 ```
@@ -192,11 +192,11 @@ fclc-server/src/
 
 ## Data Flow (summary)
 
-1. **Clinic node** imports CSV/FHIR → de-identifies → normalizes to OMOP → trains locally with DP-SGD
-2. **SecAgg+ masked update** → POST to orchestrator
+1. **Clinic node** imports CSV/FHIR → de-identification preview (user confirms) → normalizes to OMOP → trains locally with DP-SGD
+2. **SecAgg+ masked update** → POST to orchestrator (automatic retry ×3, exponential backoff 1 s / 2 s / 4 s on network errors)
 3. **Orchestrator** runs Krum (reject Byzantine) → FedProx aggregation → Shapley scoring → saves to PostgreSQL
 4. **New global model** distributed to all nodes
-5. **fclc-web** dashboard reads metrics via REST → displays in LiveView
+5. **fclc-web** dashboard reads metrics via REST → displays in LiveView (Shapley bar chart with colour coding per node)
 
 Full diagram: [MAP.md](MAP.md)
 

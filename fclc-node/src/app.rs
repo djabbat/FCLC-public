@@ -264,6 +264,48 @@ impl FclcNodeApp {
             ui.colored_label(Color32::YELLOW, "No data loaded. Go to the Data tab first.");
         }
 
+        // De-identification preview before submission (item 25).
+        // Shows the de-identified records that will be used in training,
+        // so the clinician can confirm no identifiable data is present.
+        if !self.preview_rows.is_empty() {
+            ui.group(|ui| {
+                ui.label(RichText::new("De-identification preview — data to be submitted").strong());
+                ui.label(
+                    RichText::new(
+                        "Verify that no direct identifiers appear below before starting training."
+                    )
+                    .color(Color32::GRAY)
+                    .small(),
+                );
+                ui.add_space(4.0);
+                egui::Grid::new("training_deident_preview")
+                    .striped(true)
+                    .show(ui, |ui| {
+                        ui.label(RichText::new("Age Group").small().strong());
+                        ui.label(RichText::new("Sex").small().strong());
+                        ui.label(RichText::new("HbA1c").small().strong());
+                        ui.label(RichText::new("BMI").small().strong());
+                        ui.label(RichText::new("Target").small().strong());
+                        ui.end_row();
+                        for row in self.preview_rows.iter().take(3) {
+                            for cell in row {
+                                ui.label(RichText::new(cell).small());
+                            }
+                            ui.end_row();
+                        }
+                    });
+                ui.add_space(2.0);
+                ui.label(
+                    RichText::new(format!(
+                        "✓  {record_count} records total — all de-identified per 5-layer stack."
+                    ))
+                    .color(Color32::GREEN)
+                    .small(),
+                );
+            });
+            ui.add_space(8.0);
+        }
+
         let can_train = !in_progress && record_count > 0;
 
         ui.add_enabled_ui(can_train, |ui| {

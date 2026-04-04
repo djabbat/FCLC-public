@@ -60,8 +60,8 @@
 | 22 | Local model training loop | ✅ | High |
 | 23 | CSV connector (raw → OmopRecord) | ✅ | High |
 | 24 | FHIR JSON connector (Patient + Observation: HbA1c/BMI) | ✅ | Medium |
-| 25 | De-identification UI (preview before submit) | ⏳ | High |
-| 26 | Error handling + retry on network failure | ⏳ | High |
+| 25 | De-identification UI (preview before submit) | ✅ | High |
+| 26 | Error handling + retry on network failure | ✅ | High |
 | 27 | Node registration flow (first run) | ✅ | High |
 
 ---
@@ -96,7 +96,7 @@
 | 44 | `mix phx.new fclc-web` | ✅ | Critical |
 | 45 | LiveView: Training dashboard (AUC per round) | ✅ | High |
 | 46 | LiveView: Node registry table | ✅ | High |
-| 47 | LiveView: Shapley scores bar chart | ⏳ | High |
+| 47 | LiveView: Shapley scores bar chart | ✅ | High |
 | 48 | LiveView: DP budget gauge per node | ✅ | High |
 | 49 | Req HTTP client → fclc-server REST | ✅ | Critical |
 | 50 | Real-time update via polling (10s interval) | ✅ | Medium |

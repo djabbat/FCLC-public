@@ -49,6 +49,7 @@ defmodule FclcWebWeb.DashboardLive do
       nodes: [],
       rounds: [],
       audit: [],
+      shapley_scores: [],
       error: nil,
       last_updated: nil
     )
@@ -75,11 +76,25 @@ defmodule FclcWebWeb.DashboardLive do
       {:error, _} -> []
     end
 
+    # Shapley scores: fetch the latest score for each registered node.
+    shapley_scores = nodes
+      |> Enum.map(fn node ->
+        node_id = node["node_id"] || node[:node_id]
+        latest_score = case FclcClient.get_node_score(node_id) do
+          {:ok, scores} when is_list(scores) and length(scores) > 0 ->
+            scores |> List.last() |> Map.get("shapley_score")
+          _ -> nil
+        end
+        %{node_name: node["node_name"] || "node-#{String.slice(to_string(node_id), 0, 6)}",
+          score: latest_score}
+      end)
+
     assign(socket,
       metrics: metrics,
       nodes: nodes,
       rounds: rounds,
       audit: audit,
+      shapley_scores: shapley_scores,
       last_updated: DateTime.utc_now()
     )
   end
@@ -218,6 +233,40 @@ defmodule FclcWebWeb.DashboardLive do
           </div>
         </div>
 
+        <!-- Shapley contribution scores bar chart -->
+        <div class="bg-white rounded-xl shadow-sm p-5 mb-6">
+          <h2 class="text-lg font-semibold text-gray-800 mb-1">Shapley Contribution Scores</h2>
+          <p class="text-xs text-gray-400 mb-3">
+            Per-node fairness metric — fraction of model improvement attributable to each node.
+            Sum ≈ 1.0. Nodes below 0.05 for 3 consecutive rounds are suspended.
+          </p>
+          <%= if Enum.empty?(@shapley_scores) do %>
+            <p class="text-sm text-gray-400">No scores yet — complete at least one federated round.</p>
+          <% else %>
+            <div class="space-y-2">
+              <%= for %{node_name: name, score: score} <- @shapley_scores do %>
+                <div class="flex items-center gap-3 text-sm">
+                  <span class="w-40 truncate text-gray-700 font-medium" title={name}>
+                    <%= name %>
+                  </span>
+                  <div class="flex-1 bg-gray-100 rounded-full h-5 overflow-hidden">
+                    <%= if score do %>
+                      <div class={shapley_bar_class(score)}
+                           style={"width: #{min(score * 100, 100)}%"}>
+                      </div>
+                    <% else %>
+                      <div class="bg-gray-300 h-5 w-full rounded-full"></div>
+                    <% end %>
+                  </div>
+                  <span class="w-16 text-right font-mono text-xs text-gray-700">
+                    <%= format_shapley(score) %>
+                  </span>
+                </div>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+
         <!-- Audit log -->
         <div class="bg-white rounded-xl shadow-sm p-5">
           <h2 class="text-lg font-semibold text-gray-800 mb-3">Audit Log (last 5)</h2>
@@ -263,4 +312,17 @@ defmodule FclcWebWeb.DashboardLive do
   defp dp_badge_class(eps) when is_float(eps) and eps > 5.0,
     do: "text-yellow-600 font-semibold"
   defp dp_badge_class(_), do: "text-gray-700"
+
+  defp format_shapley(nil), do: "N/A"
+  defp format_shapley(s) when is_float(s),
+    do: :erlang.float_to_binary(s, decimals: 4)
+  defp format_shapley(_), do: "N/A"
+
+  # Bar colour: green if healthy (≥0.10), yellow if at-risk (0.05–0.10), red if below threshold.
+  defp shapley_bar_class(s) when is_float(s) and s >= 0.10,
+    do: "bg-green-500 h-5 rounded-full transition-all"
+  defp shapley_bar_class(s) when is_float(s) and s >= 0.05,
+    do: "bg-yellow-400 h-5 rounded-full transition-all"
+  defp shapley_bar_class(_),
+    do: "bg-red-500 h-5 rounded-full transition-all"
 end
