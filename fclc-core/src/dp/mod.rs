@@ -1,3 +1,6 @@
+pub mod renyi;
+pub use renyi::{RdpAccountant, RdpError, rdp_gaussian, rdp_to_dp};
+
 use rand_distr::{Distribution, Normal};
 use rand::thread_rng;
 use thiserror::Error;
