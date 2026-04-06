@@ -29,7 +29,7 @@ pub async fn list_nodes(pool: &PgPool) -> Result<Vec<NodeInfo>> {
     let rows = sqlx::query(
         r#"
         SELECT node_id, node_name, epsilon_spent,
-               registered_at AT TIME ZONE 'UTC' AS registered_at
+               registered_at
         FROM nodes
         ORDER BY registered_at ASC
         "#,
@@ -126,7 +126,7 @@ pub async fn list_rounds(pool: &PgPool) -> Result<Vec<RoundResult>> {
     let rows = sqlx::query(
         r#"
         SELECT round_id, round_number, auc, participating_nodes,
-               completed_at AT TIME ZONE 'UTC' AS completed_at
+               completed_at
         FROM rounds
         ORDER BY round_number ASC
         "#,
@@ -156,7 +156,7 @@ pub async fn get_round(pool: &PgPool, round_id: Uuid) -> Result<Option<RoundResu
     let row = sqlx::query(
         r#"
         SELECT round_id, round_number, auc, participating_nodes,
-               completed_at AT TIME ZONE 'UTC' AS completed_at
+               completed_at
         FROM rounds
         WHERE round_id = $1
         "#,
@@ -289,7 +289,7 @@ pub async fn get_audit_chain(pool: &PgPool) -> Result<Vec<AuditEntry>> {
         r#"
         SELECT entry_id, round_id, round_number, gradient_hash, mean_auc,
                participating, prev_hash, entry_hash,
-               recorded_at AT TIME ZONE 'UTC' AS recorded_at
+               recorded_at
         FROM audit_log
         ORDER BY round_number ASC
         "#,

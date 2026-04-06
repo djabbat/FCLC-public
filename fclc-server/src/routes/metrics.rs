@@ -51,11 +51,25 @@ pub async fn metrics(
         }
     };
 
+    // Compute Rényi DP savings vs. linear accounting across all active nodes.
+    let (rdp_epsilon_savings, nodes_near_budget) = {
+        let budgets = state.node_budgets.read().await;
+        let savings: f64 = budgets.values()
+            .map(|s| (s.epsilon_linear - s.effective_epsilon()).max(0.0))
+            .sum();
+        let near_budget = budgets.values()
+            .filter(|s| s.effective_epsilon() > crate::state::EPSILON_TOTAL * 0.8)
+            .count();
+        (savings, near_budget)
+    };
+
     Ok(Json(MetricsResponse {
         current_round,
         node_count,
         auc_history,
         avg_shapley,
+        rdp_epsilon_savings,
+        nodes_near_budget,
     }))
 }
 
@@ -95,6 +109,17 @@ pub async fn prometheus_metrics(
         )),
     };
 
+    let (rdp_savings, nodes_near_budget) = {
+        let budgets = state.node_budgets.read().await;
+        let savings: f64 = budgets.values()
+            .map(|s| (s.epsilon_linear - s.effective_epsilon()).max(0.0))
+            .sum();
+        let near = budgets.values()
+            .filter(|s| s.effective_epsilon() > crate::state::EPSILON_TOTAL * 0.8)
+            .count();
+        (savings, near)
+    };
+
     let body = format!(
         "# HELP fclc_rounds_total Total number of completed federated learning rounds\n\
          # TYPE fclc_rounds_total counter\n\
@@ -107,7 +132,13 @@ pub async fn prometheus_metrics(
          fclc_auc_latest {auc_latest:.6}\n\
          # HELP fclc_avg_shapley Average Shapley contribution score across all nodes\n\
          # TYPE fclc_avg_shapley gauge\n\
-         fclc_avg_shapley {avg_shapley:.6}\n"
+         fclc_avg_shapley {avg_shapley:.6}\n\
+         # HELP fclc_rdp_epsilon_savings Total epsilon saved by Renyi DP vs linear accounting\n\
+         # TYPE fclc_rdp_epsilon_savings gauge\n\
+         fclc_rdp_epsilon_savings {rdp_savings:.6}\n\
+         # HELP fclc_nodes_near_budget Nodes with >80% of DP budget consumed\n\
+         # TYPE fclc_nodes_near_budget gauge\n\
+         fclc_nodes_near_budget {nodes_near_budget}\n"
     );
 
     Ok(Response::builder()

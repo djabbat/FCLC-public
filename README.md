@@ -2,18 +2,20 @@
 
 A privacy-preserving federated learning platform for clinical AI, built in Rust and Elixir.
 
+> **Status:** v0.1.0-alpha · All 13 API endpoints verified live · 38/38 tests pass · **Pilot ready** (2026-04-06)
 > **Grant status:** CONCEPT v6.0 finalised — **ГОТОВО К ПОДАЧЕ** EIC Pathfinder Open (deadline 12 May 2026).
-> PI: Jaba Tkemaladze (Phasis Academy) · Co-PI: Giorgi Tsomaia (WP2+WP4)
+> PI: Jaba Tkemaladze (ORCID: 0000-0001-8651-7243) · Co-PI: Giorgi Tsomaia (WP2+WP4)
 
 ## What it does
 
 FCLC enables hospitals and clinics to collaboratively train AI models on patient data **without sharing any raw records**. Each institution trains locally; only privacy-protected gradient updates leave the clinic.
 
-**Privacy guarantees:**
-- Differential Privacy (ε=2.0/round, δ=1e-5, Gaussian mechanism)
-- SecAgg+ additive masking (pairwise mask cancellation; orchestrator sees only aggregate)
-- k-anonymity (k≥5) + direct identifier removal before local training
-- Linear DP budget accounting (ε_total = Σ ε_per_round; Rényi DP planned)
+**Privacy guarantees (5-layer stack):**
+- **L1** Direct identifier removal (name, MRN, exact DOB, address)
+- **L2** Quasi-identifier generalization (age bins, decade dates, HbA1c rounding)
+- **L3** k-anonymity (k≥5) per (age_group, sex) cell
+- **L4** Rényi DP-SGD (ε=2.0/round, δ=1e-5) — **Rényi accounting active**: ~1.985ε saved/round (~30–40 rounds vs 5 with linear)
+- **L5** SecAgg+ additive masking — orchestrator sees only aggregate
 
 **Fairness:** Shapley value scoring (Monte Carlo, M=150) rewards each node proportionally to its actual contribution to model quality.
 
@@ -63,11 +65,28 @@ cargo run -p fclc-node
 ### Database setup
 
 ```bash
-# Create database
+# Create database + user
 createdb fclc
+psql -c "CREATE USER fclc WITH PASSWORD 'fclc';"
+psql -c "ALTER DATABASE fclc OWNER TO fclc;"
 
-# Run migrations
-psql fclc < migrations/001_init.sql
+# Or via Docker (existing postgres container):
+docker exec postgres psql -U postgres -c "CREATE USER fclc WITH PASSWORD 'fclc';"
+docker exec postgres psql -U postgres -c "CREATE DATABASE fclc OWNER fclc;"
+
+# Migrations run automatically on server startup (sqlx::migrate!)
+# Or manually:
+psql postgres://fclc:fclc@localhost:5432/fclc < fclc-server/migrations/001_init.sql
+psql postgres://fclc:fclc@localhost:5432/fclc < fclc-server/migrations/002_audit_log.sql
+```
+
+### Generate demo data (no real patients needed)
+
+```bash
+cd FCLC
+python3 scripts/generate_demo_data.py --nodes 3 --records 500 --seed 42 --out data/
+# Creates: data/clinic_node1_demo.csv, clinic_node2_demo.csv, clinic_node3_demo.csv
+# Load via fclc-node GUI: Data tab → CSV path
 ```
 
 ### Web dashboard (fclc-web)

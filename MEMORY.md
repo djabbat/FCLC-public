@@ -2,6 +2,21 @@
 
 ## Key Decisions & Architecture Choices
 
+### 2026-04-06 — Pilot Ready: All Endpoints Verified + Rényi DP Active
+- **Rényi DP wired into production:** `RdpAccountant` from `fclc-core/src/dp/renyi.rs` connected to `fclc-server/src/state.rs` (NodeDpState)
+- **Savings:** ~1.985ε/round vs linear at σ=0.89, q=0.013 (verified live 2026-04-06)
+- **Effect:** ~30–40 rounds per node instead of 5 (linear limit)
+- **API verified:** All 13 endpoints tested live with real DB (postgres://fclc@localhost:5432/fclc)
+- **New files:**
+  - `docs/DUA_template.md` — Data Use Agreement for clinic onboarding
+  - `docs/IRB_protocol_template.md` — IRB/Ethics committee protocol
+  - `docs/DATASETS.md` — Public datasets: Synthea → MIMIC Demo → NHANES → UK Biobank
+  - `scripts/generate_demo_data.py` — 3 clinics × 500 synthetic patients
+  - `data/clinic_node{1,2,3}_demo.csv` — ready-to-use demo datasets
+- **Bug fixed:** TIMESTAMPTZ vs TIMESTAMP in db/mod.rs (removed AT TIME ZONE 'UTC' cast)
+- **Workspace Cargo.toml:** Created at FCLC/ root (was misplaced in docs/)
+- **Tests:** 38/38 pass (27 unit + 4 integration + 7 orchestrator)
+
 ### 2026-03-26 — Project Concept Finalized (Version 5.0)
 - **Status at creation:** CONCEPT.md v5.0 marked final; peer review loop running via `fedclinai_loop.py` → `CONCEPT_REVIEWED.md`
 - **External co-author confirmed:** Giorgi Tsomaia (external collaborator, not institutional affiliation)

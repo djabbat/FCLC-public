@@ -22,7 +22,7 @@ use state::AppState;
 
 /// Bearer token auth middleware.
 /// Reads FCLC_API_TOKEN env var; if set, rejects requests without matching Authorization header.
-async fn auth_middleware<B>(req: Request<B>, next: Next<B>) -> Result<Response, StatusCode> {
+async fn auth_middleware(req: Request<axum::body::Body>, next: Next) -> Result<Response, StatusCode> {
     if let Ok(expected) = std::env::var("FCLC_API_TOKEN") {
         if !expected.is_empty() {
             let token = req

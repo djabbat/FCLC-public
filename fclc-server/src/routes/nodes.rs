@@ -31,10 +31,11 @@ pub async fn register_node(
         ));
     }
 
-    // Ensure budget tracker has an entry for this node.
+    // Ensure budget tracker has an entry for this node (Rényi DP accountant).
     {
+        use crate::state::NodeDpState;
         let mut budgets = state.node_budgets.write().await;
-        budgets.entry(req.node_id).or_insert(0.0);
+        budgets.entry(req.node_id).or_insert_with(NodeDpState::new);
     }
 
     Ok(Json(RegisterResponse {

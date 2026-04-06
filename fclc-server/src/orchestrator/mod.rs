@@ -11,7 +11,7 @@ use fclc_core::{aggregation::fedprox_aggregate, aggregation::krum_select, Shaple
 use crate::{
     db,
     models::{RoundResult, UpdatePayload},
-    state::{AppState, EPSILON_TOTAL, MIN_NODES_FOR_AGGREGATION},
+    state::{AppState, NodeDpState, EPSILON_TOTAL, MIN_NODES_FOR_AGGREGATION},
 };
 
 /// Byzantine-tolerance fraction used by Krum (25%).
@@ -158,18 +158,32 @@ async fn run_aggregation(state: Arc<AppState>) -> Result<()> {
     };
 
     // ── 2. Filter out nodes that have exceeded the DP budget ─────────────────
+    // Uses Rényi DP effective epsilon when sigma+sampling_rate are provided;
+    // falls back to linear composition otherwise. Budget check is conservative:
+    // excluded only if BOTH linear and Rényi estimates exceed EPSILON_TOTAL.
     let budgets = state.node_budgets.read().await;
     let eligible: Vec<(Uuid, UpdatePayload)> = updates
         .into_iter()
         .filter(|(node_id, payload)| {
-            let spent = budgets.get(node_id).copied().unwrap_or(0.0);
-            let would_be = spent + payload.epsilon_spent;
-            if would_be > EPSILON_TOTAL {
+            let effective_spent = budgets
+                .get(node_id)
+                .map(|s| s.effective_epsilon())
+                .unwrap_or(0.0);
+            // Estimate what Rényi epsilon would be after this round.
+            let linear_spent = budgets
+                .get(node_id)
+                .map(|s| s.epsilon_linear)
+                .unwrap_or(0.0);
+            let would_be_linear = linear_spent + payload.epsilon_spent;
+            // Use effective (Rényi) if it's available, else linear for the check.
+            let effective_would_be = effective_spent + payload.epsilon_spent;
+            if effective_would_be > EPSILON_TOTAL {
                 warn!(
                     node_id = %node_id,
-                    spent = spent,
+                    effective_spent = effective_spent,
+                    linear_would_be = would_be_linear,
                     requested = payload.epsilon_spent,
-                    "Node excluded: DP budget exceeded"
+                    "Node excluded: DP budget exceeded (Rényi ε={effective_spent:.3})"
                 );
                 false
             } else {
@@ -279,12 +293,24 @@ async fn run_aggregation(state: Arc<AppState>) -> Result<()> {
     db::insert_shapley_scores(&state.pool, round_number, &scored_pairs).await?;
 
     // Update per-node epsilon budgets in DB.
+    // Uses NodeDpState which tracks both linear and Rényi epsilon.
     {
         let mut budgets = state.node_budgets.write().await;
         for (node_id, payload) in &eligible {
-            let entry = budgets.entry(*node_id).or_insert(0.0);
-            *entry += payload.epsilon_spent;
-            if let Err(e) = db::update_node_epsilon(&state.pool, *node_id, *entry).await {
+            let entry = budgets.entry(*node_id).or_insert_with(NodeDpState::new);
+            entry.spend(payload.epsilon_spent, payload.sigma, payload.sampling_rate);
+            let effective = entry.effective_epsilon();
+            let linear = entry.epsilon_linear;
+            let rdp_eps = entry.rdp.current_epsilon();
+            info!(
+                node_id = %node_id,
+                linear_eps = linear,
+                rdp_eps = rdp_eps,
+                effective_eps = effective,
+                "DP budget update: Rényi saves {:.3}ε vs linear",
+                (linear - effective).max(0.0)
+            );
+            if let Err(e) = db::update_node_epsilon(&state.pool, *node_id, effective).await {
                 warn!("Failed to persist epsilon for node {}: {}", node_id, e);
             }
             // Also persist the update record.

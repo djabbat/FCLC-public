@@ -21,11 +21,18 @@ pub struct RegisterResponse {
 pub struct UpdatePayload {
     /// Gradient vector (f64 so JSON round-trips cleanly)
     pub gradient: Vec<f64>,
-    /// Epsilon consumed by DP noise on this update
+    /// Epsilon consumed by DP noise on this update (linear accounting, kept for display).
     pub epsilon_spent: f64,
     pub loss: f64,
     pub auc: f64,
     pub record_count: usize,
+    /// Gaussian noise multiplier σ used by the node for DP-SGD.
+    /// When present, the server uses Rényi DP accounting (tighter bounds).
+    /// If absent, falls back to linear (basic) composition.
+    pub sigma: Option<f64>,
+    /// Batch sampling rate q = batch_size / dataset_size (for Rényi subsampled Gaussian).
+    /// Required for accurate Rényi DP accounting; defaults to 0.01 if absent.
+    pub sampling_rate: Option<f64>,
 }
 
 // ── Global model ──────────────────────────────────────────────────────────────
@@ -65,6 +72,11 @@ pub struct MetricsResponse {
     pub node_count: usize,
     pub auc_history: Vec<f64>,
     pub avg_shapley: f64,
+    /// Total epsilon saved across all nodes: Σ (linear_ε - Rényi_ε).
+    /// Zero when sigma/sampling_rate were not submitted by nodes.
+    pub rdp_epsilon_savings: f64,
+    /// Number of nodes with effective epsilon > 80% of EPSILON_TOTAL (at-risk).
+    pub nodes_near_budget: usize,
 }
 
 // ── Node listing ──────────────────────────────────────────────────────────────

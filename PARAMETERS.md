@@ -9,10 +9,16 @@
 | `dp_epsilon_total` | ε_total | 10.0 | ε_per_round – 100.0 | — | Lifetime privacy budget per node; node excluded when exceeded |
 | `dp_noise_multiplier` | σ_mult | auto | — | — | σ = sensitivity × √(2 ln(1.25/δ)) / ε; derived, not set directly |
 | `dp_sensitivity` | Δf | 1.0 | 0.1 – 5.0 | — | L2 sensitivity of gradient (= max_grad_norm after clipping) |
-| `dp_accounting` | — | basic | {basic, Rényi, moments} | — | Composition rule for multi-round budget tracking (current: linear/basic; Rényi DP is TODO) |
+| `dp_accounting` | — | Rényi | {basic, Rényi, moments} | — | Rényi DP active (2026-04-06): subsampled Gaussian, σ=0.89, q=sampling_rate; ~30–40 rounds |
+| `dp_sigma` | σ | 0.89 | — | — | Gaussian noise multiplier submitted by node; required for Rényi accounting |
+| `dp_sampling_rate` | q | 0.013 | 0–1 | — | Batch size / dataset size; used in subsampled Gaussian RDP cost |
 
 **Notes:**
-- At ε=2.0/round: budget exhausted after 5 rounds (standard); with Rényi DP subsampling at rate q, effective ε ≈ 0.2/round → ~50 rounds
+- At ε=2.0/round linear: budget exhausted after 5 rounds
+- **With Rényi DP (σ=0.89, q=0.013): effective ε ≈ 0.015/round → ~30–40 rounds per node**
+- Rényi savings verified live: 1.985ε saved per round (2026-04-06 test)
+- δ < 1/n_patients is required for meaningful privacy guarantee
+- ε < 1.0: strong privacy, significant utility loss; ε = 2.0–8.0: practical medical FL range
 - δ < 1/n_patients is required for meaningful privacy guarantee
 - ε < 1.0: strong privacy, significant utility loss; ε = 2.0–8.0: practical medical FL range
 

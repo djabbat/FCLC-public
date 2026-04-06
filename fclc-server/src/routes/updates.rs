@@ -31,15 +31,18 @@ pub async fn submit_update(
     Path(node_id): Path<Uuid>,
     Json(payload): Json<UpdatePayload>,
 ) -> Result<Json<UpdateResponse>, (StatusCode, Json<ErrorResponse>)> {
-    // ── Budget check ──────────────────────────────────────────────────────────
+    // ── Budget check (Rényi DP + linear fallback) ─────────────────────────────
     {
         let budgets = state.node_budgets.read().await;
-        let spent = budgets.get(&node_id).copied().unwrap_or(0.0);
-        if spent + payload.epsilon_spent > EPSILON_TOTAL {
+        let effective_spent = budgets
+            .get(&node_id)
+            .map(|s| s.effective_epsilon())
+            .unwrap_or(0.0);
+        if effective_spent + payload.epsilon_spent > EPSILON_TOTAL {
             return Err((
                 StatusCode::FORBIDDEN,
                 Json(ErrorResponse::new(format!(
-                    "DP budget exceeded: spent={spent:.4}, requested={:.4}, total_allowed={EPSILON_TOTAL}",
+                    "DP budget exceeded: effective_spent={effective_spent:.4}, requested={:.4}, total_allowed={EPSILON_TOTAL}",
                     payload.epsilon_spent
                 ))),
             ));

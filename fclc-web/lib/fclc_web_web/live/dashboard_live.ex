@@ -136,7 +136,7 @@ defmodule FclcWebWeb.DashboardLive do
 
         <!-- Metrics cards -->
         <%= if @metrics && !Map.has_key?(@metrics, "error") do %>
-          <div class="grid grid-cols-4 gap-4 mb-8">
+          <div class="grid grid-cols-5 gap-4 mb-8">
             <div class="bg-white rounded-xl shadow-sm p-5">
               <p class="text-xs text-gray-500 uppercase tracking-wide">Current Round</p>
               <p class="text-4xl font-bold text-gray-900 mt-1">
@@ -160,6 +160,13 @@ defmodule FclcWebWeb.DashboardLive do
               <p class="text-4xl font-bold text-purple-600 mt-1">
                 <%= format_score(@metrics["avg_shapley"]) %>
               </p>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm p-5">
+              <p class="text-xs text-gray-500 uppercase tracking-wide">Rényi ε Saved</p>
+              <p class="text-4xl font-bold text-indigo-600 mt-1">
+                <%= format_score(@metrics["rdp_epsilon_savings"]) %>
+              </p>
+              <p class="text-xs text-gray-400 mt-1">vs. linear accounting</p>
             </div>
           </div>
         <% else %>
