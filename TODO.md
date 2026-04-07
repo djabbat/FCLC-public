@@ -14,6 +14,19 @@
 
 ---
 
+## 🔴 Баги аналитического разбора (2026-04-06)
+
+| # | Файл | Описание | Приоритет | Статус |
+|---|------|----------|-----------|--------|
+| BUG-F1 | `fclc-core/src/aggregation/mod.rs:230` | SecAgg dropout: обратный знак коррекции — удваивает дисбаланс вместо устранения | Высокий | 🔴 Fix |
+| BUG-F2 | `fclc-core/src/privacy/mod.rs` + `schema/mod.rs` | `DeidentConfig::k_anonymity` хранится но нигде не используется в логике подавления | Средний | 🔴 Fix |
+| BUG-F3 | `fclc-core/tests/integration_round.rs:188` | Deprecated alias `RenyiAccountant` вместо `LinearDpAccountant` | Низкий | 🔴 Fix |
+| GAP-F4 | `fclc-node/src/pipeline/mod.rs` | `UpdatePayload` не передаёт `sigma`/`sampling_rate` → Rényi на сервере работает с `None` | Средний | ⏳ |
+| GAP-F5 | `fclc-web/lib/fclc_web_web/live/dashboard_live.ex` | Кнопка "Trigger Round" не требует аутентификации | Средний | ⏳ |
+| NOTE-F6 | `fclc-server/src/orchestrator/mod.rs` | Shapley performance = mean AUC (линейная аппроксимация, не реальный прирост модели) | Информационно | ✅ Задокументировано |
+
+---
+
 ## 🔴 CRITICAL — Immediate
 
 | # | Task | Status | Notes |

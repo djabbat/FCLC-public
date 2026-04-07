@@ -846,12 +846,12 @@ FCLC собирает данные от носимых устройств (BioSe
 
 ### Публичные репозитории экосистемы
 
-| Проект | Репозиторий | Содержимое |
-|--------|-------------|-----------|
-| **Ze Vectors Theory** | https://github.com/djabbat/Ze | Теория, постулаты, Rust-симулятор, Phoenix веб-симулятор |
-| **CDATA** | https://github.com/djabbat/CDATA-public | Rust-симулятор (8 крейтов), валидационные скрипты, параметры |
-| **BioSense (EEG)** | https://github.com/djabbat/ze-eeg-validation | Python EEG-валидация, 4 датасета, χ_Ze расчёт |
-| **FCLC** | *(открытие планируется после подачи EIC)* | Privacy stack, FedProx, Shapley scoring, OMOP CDM |
+| Проект | Публичный репозиторий | Приватный репозиторий | Содержимое публичного |
+|--------|----------------------|----------------------|----------------------|
+| **Ze Vectors Theory** | https://github.com/djabbat/Ze-public | https://github.com/djabbat/Ze-private | Теория, постулаты, Rust-симулятор, Phoenix веб-симулятор |
+| **CDATA** | https://github.com/djabbat/CDATA-public | https://github.com/djabbat/CDATA-private | Rust-симулятор (8 крейтов), валидационные скрипты, параметры |
+| **BioSense** | https://github.com/djabbat/BioSense-public | https://github.com/djabbat/BioSense-private | Python EEG/HRV/VOC-валидация, χ_Ze расчёт, аппаратные спецификации |
+| **FCLC** | https://github.com/djabbat/FCLC-public | https://github.com/djabbat/FCLC-private | Privacy stack, FedProx, Shapley scoring, OMOP CDM |
 
 ---
 
