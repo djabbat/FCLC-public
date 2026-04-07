@@ -227,11 +227,25 @@ pub fn secagg_unmask_sum(
                     })
                     .collect();
 
-                // Node j had sign = if j < d { +1 } else { -1 } for this pair
-                // The sum is missing j's mask applied to d's slot; correct by subtracting
+                // When node d drops out, its masks with present nodes j are missing.
+                //
+                // In secagg_mask_update, node j (node_index=j) paired with d:
+                //   if j > d → j applied -mask  (sign = -1 because node_index > loop_j)
+                //   if j < d → j applied +mask  (sign = +1 because node_index < loop_j)
+                //
+                // The sum already contains j's contribution. d's complement is absent.
+                //
+                // When d < j: j applied -mask. d's +mask is absent. Net: sum has -mask
+                //   extra. Correct by adding +mask → sign = +1 → sum += sign * v ✓
+                //
+                // When d > j: j applied +mask. d's -mask is absent. Net: sum has +mask
+                //   extra. Correct by subtracting mask → sign = -1 → sum += sign * v ✓
+                //
+                // BUG-F1 fix (2026-04-06): original code used `*s -= sign * v` which
+                // doubled the imbalance instead of cancelling it. Correct: `*s += sign * v`.
                 let sign: f32 = if d < j { 1.0 } else { -1.0 };
                 for (s, &v) in sum.iter_mut().zip(mask.iter()) {
-                    *s -= sign * v; // undo the imbalance
+                    *s += sign * v; // BUG-F1 fixed: add (not subtract) to cancel imbalance
                 }
             }
         }

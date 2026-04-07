@@ -1,6 +1,6 @@
 use anyhow::Result;
 use fclc_core::{
-    dp::{DpConfig, RenyiAccountant, add_noise_to_gradient, clip_gradient},
+    dp::{DpConfig, LinearDpAccountant, add_noise_to_gradient, clip_gradient},
     privacy::{DeidentConfig, deidentify_batch},
     schema::{OmopRecord, OmopRecord as Record},
 };
@@ -126,7 +126,7 @@ impl LogisticModel {
 pub struct LocalPipeline {
     pub model: LogisticModel,
     pub dp_config: DpConfig,
-    pub accountant: RenyiAccountant,
+    pub accountant: LinearDpAccountant,
     pub learning_rate: f32,
     pub local_epochs: usize,
     pub max_grad_norm: f32,
@@ -142,7 +142,7 @@ impl LocalPipeline {
         Self {
             model: LogisticModel::new(dim),
             dp_config,
-            accountant: RenyiAccountant::new(budget),
+            accountant: LinearDpAccountant::new(budget),
             learning_rate: 0.01,
             local_epochs: 3,
             max_grad_norm: 1.0,

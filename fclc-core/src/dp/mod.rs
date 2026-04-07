@@ -30,19 +30,31 @@ pub enum DpError {
     InvalidParams(String),
 }
 
-/// Epsilon budget accountant for (ε, δ)-DP via basic composition.
+/// Epsilon budget accountant for (ε, δ)-DP via **basic (linear) composition**.
 ///
-/// Tracks cumulative epsilon expenditure against a total budget.
-/// Note: this is a linear (basic composition) accountant. For tighter
-/// bounds, replace with a proper Rényi DP / PRV accountant that uses
-/// the moments of the privacy loss random variable.
+/// Tracks cumulative epsilon expenditure against a total budget by simple addition.
+/// This is the CONSERVATIVE worst-case bound: ε_total = Σ ε_i over all rounds.
+///
+/// For tighter bounds use `RdpAccountant` (renyi.rs), which exploits the Rényi DP
+/// curve of the Gaussian mechanism and subsampling to reduce effective ε by ~30–40×.
+///
+/// # Naming note
+/// Previously misnamed `RenyiAccountant`. The name was incorrect — this struct does NOT
+/// use Rényi DP. The real Rényi accountant is `RdpAccountant` in `dp::renyi`. The
+/// deprecated alias `RenyiAccountant` is kept for one release cycle.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct RenyiAccountant {
+pub struct LinearDpAccountant {
     pub total_epsilon: f64,
     budget: f64,
 }
 
-impl RenyiAccountant {
+/// Deprecated alias — use `LinearDpAccountant`.
+/// This name was incorrect: the struct uses basic composition, NOT Rényi DP.
+/// The real Rényi accountant is `RdpAccountant` in `fclc_core::dp::renyi`.
+#[deprecated(since = "0.2.0", note = "Renamed to LinearDpAccountant. For Rényi DP use RdpAccountant.")]
+pub type RenyiAccountant = LinearDpAccountant;
+
+impl LinearDpAccountant {
     pub fn new(budget: f64) -> Self {
         Self {
             total_epsilon: 0.0,
@@ -127,7 +139,7 @@ mod tests {
 
     #[test]
     fn test_accountant_spend() {
-        let mut acc = RenyiAccountant::new(10.0);
+        let mut acc = LinearDpAccountant::new(10.0);
         assert!(acc.spend(2.0).is_ok());
         assert!(acc.spend(2.0).is_ok());
         assert_eq!(acc.total_epsilon, 4.0);
@@ -136,7 +148,7 @@ mod tests {
 
     #[test]
     fn test_accountant_exhausted() {
-        let mut acc = RenyiAccountant::new(5.0);
+        let mut acc = LinearDpAccountant::new(5.0);
         assert!(acc.spend(4.0).is_ok());
         assert!(acc.spend(2.0).is_err());
     }

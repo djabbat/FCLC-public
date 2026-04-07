@@ -10,7 +10,7 @@
 
 use fclc_core::{
     aggregation::{fedprox_aggregate, krum_select},
-    dp::{DpConfig, RenyiAccountant, add_noise_to_gradient, clip_gradient},
+    dp::{DpConfig, LinearDpAccountant, add_noise_to_gradient, clip_gradient},
     scoring::ShapleyScorer,
 };
 
@@ -46,8 +46,8 @@ fn test_full_5_round_federated_learning() {
     // Start from zero global model
     let mut global_model = vec![0.0f32; MODEL_DIM];
     let dp_config = DpConfig { epsilon: DP_EPSILON_PER_ROUND, delta: 1e-5, sensitivity: 1.0 };
-    let mut accountants: Vec<RenyiAccountant> = (0..N_NODES)
-        .map(|_| RenyiAccountant::new(DP_TOTAL_BUDGET))
+    let mut accountants: Vec<LinearDpAccountant> = (0..N_NODES)
+        .map(|_| LinearDpAccountant::new(DP_TOTAL_BUDGET))
         .collect();
 
     let mut prev_auc = 0.0f64;
@@ -185,7 +185,8 @@ fn test_krum_rejects_byzantine_in_round() {
 #[test]
 fn test_dp_budget_exhaustion() {
     // Budget allows exactly 5 rounds at 2.0 ε/round = 10.0 total
-    let mut acc = RenyiAccountant::new(10.0);
+    // BUG-F3 fix (2026-04-06): use LinearDpAccountant (not deprecated RenyiAccountant alias).
+    let mut acc = LinearDpAccountant::new(10.0);
     for round in 0..5 {
         assert!(
             acc.spend(2.0).is_ok(),

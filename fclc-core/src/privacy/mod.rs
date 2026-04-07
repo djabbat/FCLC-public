@@ -1,36 +1,44 @@
 use crate::schema::{OmopRecord, anonymize_record, suppress_rare_records};
 
 /// Configuration for de-identification pipeline.
+///
+/// BUG-F2 fix (2026-04-06): removed `suppress_rare_threshold` which was a duplicate
+/// of `k_anonymity` that was stored but never used in the suppression logic.
+/// Now a single `k_anonymity` field drives both the conceptual guarantee and the
+/// actual suppression in `suppress_rare_records`.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct DeidentConfig {
-    /// Minimum group size for k-anonymity (k).
+    /// Minimum group size for k-anonymity (k). Records whose (age_group, sex)
+    /// quasi-identifier combination appears fewer than k times are suppressed.
+    /// Default: 5 (CONCEPT.md §Privacy, PARAMETERS.md).
     pub k_anonymity: usize,
-    /// Suppress quasi-identifier combos below this count.
-    pub suppress_rare_threshold: usize,
 }
 
 impl Default for DeidentConfig {
     fn default() -> Self {
-        Self {
-            k_anonymity: 5,
-            suppress_rare_threshold: 5, // must equal k_anonymity (CONCEPT.md §Privacy)
-        }
+        Self { k_anonymity: 5 }
     }
 }
 
 /// De-identify a batch of OMOP records:
 /// 1. Apply field-level anonymization (rounding, generalisation) to each record.
-/// 2. Suppress rare quasi-identifier combinations (k-anonymity enforcement).
+/// 2. Suppress rare quasi-identifier combinations (k-anonymity enforcement,
+///    threshold = `config.k_anonymity` per CONCEPT.md §Privacy).
 ///
 /// Modifies `records` in-place.
+///
+/// BUG-F2 fix (2026-04-06): previously the suppression used `config.suppress_rare_threshold`
+/// while `config.k_anonymity` was stored but never used. This created a false impression
+/// that k-anonymity was enforced separately. Now a single `k_anonymity` field controls both,
+/// and `suppress_rare_threshold` is removed from `DeidentConfig`.
 pub fn deidentify_batch(records: &mut Vec<OmopRecord>, config: &DeidentConfig) {
     // Step 1: field-level anonymization (generalise values)
     for r in records.iter_mut() {
         anonymize_record(r);
     }
 
-    // Step 2: suppress rare (age_group, sex) combos
-    suppress_rare_records(records, config.suppress_rare_threshold);
+    // Step 2: enforce k-anonymity by suppressing rare (age_group, sex) combos
+    suppress_rare_records(records, config.k_anonymity);
 }
 
 #[cfg(test)]
@@ -64,15 +72,12 @@ mod tests {
     #[test]
     fn test_rare_combo_suppressed() {
         let mut records = Vec::new();
-        // 1 record with rare combo (count < threshold=3)
+        // 1 record with rare combo (count < k=3)
         records.extend(make_batch(1, 32, Sex::Male));
         // 10 records with common combo
         records.extend(make_batch(10, 45, Sex::Female));
 
-        let config = DeidentConfig {
-            k_anonymity: 5,
-            suppress_rare_threshold: 3,
-        };
+        let config = DeidentConfig { k_anonymity: 3 };
         deidentify_batch(&mut records, &config);
 
         // The rare record should have sex generalised to Unknown

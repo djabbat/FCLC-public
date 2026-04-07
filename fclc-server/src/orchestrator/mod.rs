@@ -38,8 +38,13 @@ fn compute_entry_hash(round_id: Uuid, round_number: u64, gradient_hash: &str, pr
     hex::encode(h.finalize())
 }
 
-/// FedProx proximal regularisation strength (CONCEPT.md §Aggregation).
-const MU: f32 = 0.1;
+/// Server-side aggregation strength (FedAvg = 0.0).
+///
+/// FedProx proximal correction (μ=0.1) is applied CLIENT-SIDE in
+/// fclc-node/pipeline/mod.rs: `grad += μ * (w_local - w_global)`.
+/// Setting MU > 0.0 here would double-count the regularisation and
+/// over-shrink the aggregated model toward the previous global weights.
+const MU: f32 = 0.0;
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
