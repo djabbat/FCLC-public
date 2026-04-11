@@ -49,6 +49,17 @@ pub async fn submit_update(
         }
     }
 
+    // ── Validate batch size (must be ≥ 32 for meaningful DP guarantees) ───────
+    if payload.record_count < 32 {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(ErrorResponse::new(format!(
+                "Batch size too small: got {}, minimum required is 32",
+                payload.record_count
+            ))),
+        ));
+    }
+
     // ── Validate gradient dimension (must match global model) ─────────────────
     {
         let global = state.global_model.read().await;

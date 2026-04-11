@@ -22,11 +22,13 @@ pub struct RegisterResponse {
 pub struct ModelUpdatePayload {
     pub node_id: Uuid,
     pub round_id: u32,
-    pub gradient: Vec<f64>,       // server expects f64
-    pub epsilon_spent: f64,       // was: dp_epsilon_spent
-    pub loss: f64,                // was: train_loss: f32
-    pub auc: f64,                 // was: val_auc: f32
+    pub gradient: Vec<f64>,           // server expects f64
+    pub epsilon_spent: f64,           // was: dp_epsilon_spent
+    pub loss: f64,                    // was: train_loss: f32
+    pub auc: f64,                     // was: val_auc: f32
     pub record_count: usize,
+    pub sigma: Option<f64>,           // Gaussian σ for Rényi DP accounting on server
+    pub sampling_rate: Option<f64>,   // q = batch_size/dataset_size for Rényi DP
 }
 
 /// Global model weights received from orchestrator.

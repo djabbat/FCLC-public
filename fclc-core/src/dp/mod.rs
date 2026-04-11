@@ -39,20 +39,16 @@ pub enum DpError {
 /// curve of the Gaussian mechanism and subsampling to reduce effective ε by ~30–40×.
 ///
 /// # Naming note
-/// Previously misnamed `RenyiAccountant`. The name was incorrect — this struct does NOT
-/// use Rényi DP. The real Rényi accountant is `RdpAccountant` in `dp::renyi`. The
-/// deprecated alias `RenyiAccountant` is kept for one release cycle.
+/// Linear composition DP budget accountant for (ε, δ)-DP.
+///
+/// Tracks cumulative epsilon expenditure by simple addition (basic composition).
+/// This is the conservative worst-case bound: ε_total = Σ ε_i over all rounds.
+/// For tighter bounds use `RdpAccountant` in `dp::renyi`.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct LinearDpAccountant {
     pub total_epsilon: f64,
     budget: f64,
 }
-
-/// Deprecated alias — use `LinearDpAccountant`.
-/// This name was incorrect: the struct uses basic composition, NOT Rényi DP.
-/// The real Rényi accountant is `RdpAccountant` in `fclc_core::dp::renyi`.
-#[deprecated(since = "0.2.0", note = "Renamed to LinearDpAccountant. For Rényi DP use RdpAccountant.")]
-pub type RenyiAccountant = LinearDpAccountant;
 
 impl LinearDpAccountant {
     pub fn new(budget: f64) -> Self {
@@ -90,6 +86,17 @@ impl LinearDpAccountant {
     /// Fraction of budget consumed (0.0 – 1.0).
     pub fn fraction_consumed(&self) -> f64 {
         (self.total_epsilon / self.budget).min(1.0)
+    }
+
+    /// Project cumulative ε after `rounds` additional rounds, each costing `eps_per_round`.
+    ///
+    /// R6 concern: with ε=2.0/round and 100 rounds, linear composition gives ε_total=200.
+    /// Use this to surface the warning in dashboards / logs before budget is committed.
+    ///
+    /// Returns (projected_total, budget_exceeded).
+    pub fn epsilon_projection(&self, rounds: u32, eps_per_round: f64) -> (f64, bool) {
+        let projected = self.total_epsilon + eps_per_round * rounds as f64;
+        (projected, projected > self.budget)
     }
 }
 

@@ -385,6 +385,8 @@ impl FclcNodeApp {
                         loss: training_result.train_loss as f64,
                         auc: training_result.val_auc as f64,
                         record_count,
+                        sigma: training_result.sigma,
+                        sampling_rate: training_result.sampling_rate,
                     };
 
                     let connected = client.submit_update(payload).is_ok();

@@ -15,3 +15,8 @@ e-mails/
 !README.md
 .DS_Store
 *.swp
+
+# Public repo rule: only README.md is allowed in public git
+# New .md files must be added explicitly with: git add -f file.md
+*.md
+!README.md

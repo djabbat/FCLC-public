@@ -1,6 +1,6 @@
 use anyhow::Result;
 use fclc_core::{
-    dp::{DpConfig, LinearDpAccountant, add_noise_to_gradient, clip_gradient},
+    dp::{DpConfig, LinearDpAccountant, add_noise_to_gradient, clip_gradient, gaussian_noise_sigma},
     privacy::{DeidentConfig, deidentify_batch},
     schema::{OmopRecord, OmopRecord as Record},
 };
@@ -17,6 +17,10 @@ pub struct TrainingResult {
     pub val_auc: f32,
     /// DP epsilon consumed this round.
     pub dp_epsilon_spent: f64,
+    /// Gaussian noise multiplier σ used this round — forwarded to server for Rényi DP accounting.
+    pub sigma: Option<f64>,
+    /// Poisson sampling rate q = batch_size / dataset_size — forwarded for Rényi DP accounting.
+    pub sampling_rate: Option<f64>,
 }
 
 /// Simple logistic regression model: weights vector (bias included as last element).
@@ -202,6 +206,16 @@ impl LocalPipeline {
         let epsilon_spent = self.dp_config.epsilon * self.local_epochs as f64;
         self.accountant.spend(epsilon_spent)?;
 
+        // Compute Gaussian σ and Poisson sampling rate for Rényi DP accounting on server.
+        // σ is derived from the same sensitivity/ε/δ used during noise injection.
+        // sampling_rate = 1/n (each step uses the full local batch; Poisson rate ≈ 1).
+        let sigma = gaussian_noise_sigma(
+            self.dp_config.sensitivity,
+            self.dp_config.epsilon,
+            self.dp_config.delta,
+        );
+        let sampling_rate = 1.0_f64 / records.len().max(1) as f64;
+
         // Compute AUC on local data
         let val_auc = self.model.compute_auc(records);
 
@@ -210,6 +224,8 @@ impl LocalPipeline {
             train_loss: final_loss,
             val_auc,
             dp_epsilon_spent: epsilon_spent,
+            sigma: Some(sigma),
+            sampling_rate: Some(sampling_rate),
         })
     }
 

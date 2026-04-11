@@ -1,944 +1,696 @@
-# Федеральный Клинический Консорциум (FCLC)
-## Приватная инфраструктура для обучения медицинского ИИ без передачи сырых данных пациентов
+# FCLC — Federated Clinical Learning Cooperative
+## Privacy-Preserving Infrastructure for Medical AI Training Without Raw Patient Data Transfer
 
-**Версия 6.0 — заключительная**
-**Дата: 2 апреля 2026 г.**
-**Статус: ГОТОВО К ПОДАЧЕ**
-
----
-
-## Одна фраза
-
-Объединяем медицинские данные клиник и фармацевтических компаний для обучения ИИ без передачи сырых данных пациентов, с измеримым вкладом каждого участника и прозрачным распределением выгод.
+**Version 6.2 — SecAgg+ implemented**
+**Date: April 11, 2026**
+**Status: RESEARCH PROTOTYPE — EIC Pathfinder candidate (P0-2 EU partner pending)**
 
 ---
 
-## Проблема
+## One Sentence
 
-Данные есть у всех, но они:
-
-- **в разных форматах** — HIS, EHR, PACS, LIS, неструктурированные записи
-- **под разными юридическими ограничениями** — GDPR, национальные законы, внутренние политики
-- **никто не хочет их отдавать** — риск репутационный, юридический, коммерческий
-
-**Итог:** большие модели ИИ для медицины обучаются на узких датасетах, а реальные клинические данные остаются неиспользованными. Врачи продолжают работать без инструментов ИИ, которые могли бы быть созданы на основе уже существующих данных.
+We unite clinical and pharmaceutical data for AI training without transferring raw patient data, with measurable contributions from each participant and transparent benefit distribution.
 
 ---
 
-## Решение
+## The Problem
 
-Каждый участник разворачивает у себя **локальный узел**, который:
+Data exists everywhere, but it is:
 
-1. **Подключается** к HIS/EHR/PACS через адаптеры (HL7/FHIR, собственные API)
-2. **Обезличивает данные** с гарантиями (удаление идентификаторов, квази-идентификаторы, дифференциальная приватность)
-3. **Нормализует** в единую схему (OMOP CDM)
-4. **Отправляет** только обезличенные агрегаты или обновления модели (градиенты, веса)
+- **In different formats** — HIS, EHR, PACS, LIS, unstructured notes
+- **Under different legal constraints** — GDPR, national laws, internal policies
+- **Nobody wants to share it** — reputational, legal, and commercial risks
 
-**Центральный оркестратор:**
-- Собирает обновления моделей
-- Агрегирует (федеративное усреднение с безопасной агрегацией)
-- Ведёт аудит и учёт версий
-- Рассчитывает вклад каждого участника
-
-**Данные не покидают клинику — только обучающие сигналы.**
+**Result:** Large medical AI models are trained on narrow datasets, while real clinical data remains unused. Doctors continue working without AI tools that could be built from already existing data.
 
 ---
 
-## Приватность — архитектурно, а не на словах
+## The Solution
 
-| Уровень | Механизм |
-|---------|----------|
-| 1 | Удаление прямых идентификаторов (имя, номер, адрес, точная дата) |
-| 2 | Обобщение квази-идентификаторов (возрастные группы, редкие диагнозы → suppression) |
-| 3 | Оценка риска повторной идентификации на уровне записи (k-анонимность, l-разнообразие) |
-| 4 | **Дифференциальная приватность (ε=2.0 за раунд, δ=10⁻⁵, общий бюджет ε_total≤10.0, механизм Гаусса, учёт через Rényi DP)** |
-| 5 | Безопасная агрегация (оркестратор видит только агрегированный результат) |
+Each participant deploys a **local node** that:
 
-**Результат:** даже при компрометации оркестратора или перехвате трафика восстановить данные пациентов невозможно.
+1. **Connects** to HIS/EHR/PACS via adapters (HL7/FHIR, custom APIs)
+2. **De-identifies data** with guarantees (identifier removal, quasi-identifiers, differential privacy)
+3. **Normalizes** to a common schema (OMOP CDM)
+4. **Sends only** de-identified aggregates or model updates (gradients, weights)
 
----
+**Central Orchestrator:**
+- Collects model updates
+- Aggregates (federated averaging with secure aggregation)
+- Maintains audit and version logs
+- Calculates each participant's contribution
 
-### Модель угроз и безопасность
-
-**Модель угроз (threat model):**
-- **Оркестратор:** honest-but-curious (честный, но любопытный) — следует протоколу, но может пытаться извлечь информацию из получаемых данных
-- **Узлы:** до 25% узлов могут быть вредоносными (Byzantine) — отправлять некорректные обновления с целью отравления модели (data poisoning)
-- **Внешний атакующий:** может перехватывать сетевой трафик
-
-**Меры защиты:**
-- **Безопасная агрегация (SecAgg+):** оркестратор не видит индивидуальные обновления узлов ⚠️ *Demo mode* — структура аддитивных масок верна (маски суммируются в ноль), но PRG использует LCG + DefaultHasher вместо ChaCha20 + Diffie-Hellman. **До клинического развёртывания требуется замена на криптографически стойкий PRG и DH key agreement** (Bonawitz et al. 2017)
-- **Дифференциальная приватность:** шум достаточной величины для предотвращения восстановления данных из градиентов
-- **Минимальный размер батча:** ≥32 записей для снижения риска gradient inversion attacks (Zhu et al. 2019)
-- **Робастная агрегация:** использование **Krum** для устойчивости к до 25% вредоносных узлов (Byzantine tolerance)
-- **Репутационный скоринг:** узлы с аномальным поведением автоматически исключаются из обучения
+**Data never leaves the clinic — only training signals do.**
 
 ---
 
-## Единая клиническая схема
+## Privacy — Architectural, Not Rhetorical
 
-Используется **OMOP Common Data Model** (Observational Medical Outcomes Partnership) — наиболее распространённый стандарт для наблюдательных исследований. Адаптация:
+| Layer | Mechanism |
+|-------|-----------|
+| 1 | Direct identifier removal (name, ID, address, exact date) |
+| 2 | Quasi-identifier generalization (age groups, rare diagnoses → suppression) |
+| 3 | Record-level re-identification risk assessment (k-anonymity, l-diversity) |
+| 4 | **Differential privacy (ε=2.0 per round, δ=10⁻⁵, total budget ε_total≤10.0, Gaussian mechanism, Rényi DP accounting)** ⚠️ *Exploratory research parameter. ISO/IEC 27559:2022 recommends ε_total<1.0 for health data. WP2 target: redesign to ε≤0.5/round via PATE or output perturbation. Current ε_total=10.0 must be disclosed in any regulatory or grant submission.* |
+| 5 | **SecAgg+ — ChaCha20 + Shamir (t,n) dropout recovery** (orchestrator sees only aggregated sum; individual gradients cryptographically hidden) ✅ |
 
-| Домен | Стандарт |
-|-------|---------|
-| Диагнозы | ICD-10/11 |
-| Лаборатория | LOINC |
-| Лекарства | ATC, RxNorm |
-| Процедуры | SNOMED CT, CPT |
-| Демография | обобщённые категории |
+**Result:** Even if the orchestrator is compromised or traffic is intercepted, patient data cannot be reconstructed.
 
-Локальный узел преобразует данные из HIS/EHR в OMOP на месте. Поддерживается **FHIR** как альтернативный входной формат.
+### Threat Model and Security
 
----
+**Threat model:**
+- **Orchestrator:** honest-but-curious — follows protocol but may attempt to extract information from received data
+- **Nodes:** up to 25% may be malicious (Byzantine) — sending incorrect updates to poison the model
+- **External attacker:** may intercept network traffic
 
-## Измерение вклада
-
-**Оценка вклада осуществляется через аппроксимированное значение Шепли (Federated Shapley Value).**
-
-Для каждого участника вычисляется его маргинальный вклад в производительность глобальной модели. Для масштабируемости при 5–10 узлах используется метод Монте-Карло (100–200 итераций), что даёт приемлемую точность при вычислительных затратах, порядок которых составляет O(n² × M), где n — число узлов, M — число итераций. Для 10 узлов и 200 итераций дополнительные затраты времени составляют ~10 минут на раунд, что допустимо для асинхронного федеративного обучения.
-
-**Преимущества подхода:**
-- **Теоретическое обоснование:** единственная схема распределения, удовлетворяющая аксиомам эффективности, симметрии, линейности и нулевого игрока (Shapley 1953)
-- **Защита от манипуляций:** маргинальный вклад сложно искусственно завысить без реального улучшения модели
-- **Пропорциональность:** участник получает кредиты, строго соответствующие его реальному влиянию на качество модели
-- **Устойчивость к доминированию крупных участников:** Shapley value оценивает именно маргинальный вклад, а не абсолютный объём данных
-
-**Вычислительная реализация:**
-- Оценка Shapley value выполняется центральным оркестратором после каждого раунда или эпохи
-- Используется метод Монте-Карло с 100–200 выборками перестановок узлов
-- **Альтернативный подход для масштабирования:** при росте числа узлов (>20) может использоваться аппроксимация через влияние на градиенты (influence functions) или стратифицированная выборка
-
-Участники получают **кредиты вклада**, которые конвертируются в выгоды.
-
-**Механизм защиты от безбилетников (free-rider):** доступ к глобальной модели и её новым версиям предоставляется только участникам, чей накопленный скоринг вклада превышает установленный порог (например, 5% от среднего значения). Это стимулирует активное участие и предотвращает получение выгоды без вклада.
+**Security measures:**
+- **Secure aggregation (SecAgg+) — ✅ research-grade implementation with formal semi-honest security model (2026-04-10); independent cryptographic audit planned WP3:** orchestrator sees only the aggregated sum, never individual node updates.
+  - **DH key exchange:** X25519 (Curve25519, RFC 7748, 128-bit security) via `x25519_dalek` — real authenticated key agreement, NOT a simulation
+  - **Seed derivation:** `seed_ij = SHA-256(X25519(private_i, public_j) || round || "FCLC-SECAGG-V2-SEED")` — symmetric by Curve25519 commutativity; secure against passive adversary
+  - **PRG:** ChaCha20 (IETF RFC 8439, cryptographically secure stream cipher)
+  - **Pairwise mask cancellation:** Σ_i mask_i = 0 by construction (Bonawitz et al., 2017)
+  - **Dropout recovery:** Shamir (t,n)-threshold secret sharing over GF(257), threshold = ⌈n/2⌉
+  - **Full API:** `NodeKeypair`, `ShamirShare`, `secagg_apply_masks()`, `secagg_aggregate()` in `fclc-core::aggregation::secagg`
+  - **Tests:** 44/44 pass including mask cancellation, Shamir reconstruct, X25519 symmetry
+  - **Independent security audit:** planned in WP3 (months 4–6) by external cryptographer
+- **Differential privacy:** sufficient noise to prevent data reconstruction from gradients
+- **Minimum batch size:** ≥32 records to reduce gradient inversion attack risk (Zhu et al., 2019)
+- **Robust aggregation:** **Krum** for Byzantine tolerance (up to 25% malicious nodes)
+- **Reputation scoring:** nodes with anomalous behavior are automatically excluded from training
 
 ---
 
-## Что получают участники
+## Unified Clinical Schema
 
-**Клиники:**
-- Доступ к лучшим ИИ-моделям без потери контроля над данными
-- Скидки на лицензирование
-- Приоритетный доступ к новым версиям
-- Индивидуальная донастройка моделей под свои данные
-- Анонимный бенчмаркинг
+We use the **OMOP Common Data Model** (Observational Medical Outcomes Partnership) — the most widely adopted standard for observational research. Adaptation:
 
-**Фармацевтические компании:**
-- Доступ к разнородным реальным данным без юрисдикционных рисков
-- Постмаркетинговый анализ эффективности
-- Ускорение R&D через федеративные когорты
+| Domain | Standard |
+|--------|----------|
+| Diagnoses | ICD-10/11 |
+| Laboratory | LOINC |
+| Medications | ATC, RxNorm |
+| Procedures | SNOMED CT, CPT |
+| Demographics | Generalized categories |
 
-**Все участники:**
-- Пропорциональная доля коммерческой выручки
-- Участие в управлении консорциумом
+The local node transforms data from HIS/EHR to OMOP on site. **FHIR** is supported as an alternative input format.
 
 ---
 
-## Модель управления
+## Measuring Contribution
 
-### Юридическая структура
+**Contribution is measured via approximated Shapley value (Federated Shapley Value).**
 
-Консорциум создаётся как **некоммерческое партнёрство** по законодательству страны регистрации (Грузия или страна ЕС). Участники подписывают **Консорциальное соглашение**, определяющее:
+For each participant, we compute their marginal contribution to global model performance. For scalability with 5–10 nodes, we use Monte Carlo sampling (100–200 iterations), providing acceptable accuracy with computational cost O(n² × M). For 10 nodes and 200 iterations, additional time is ~10 minutes per round — acceptable for asynchronous federated learning.
 
-- Права и обязанности участников
-- Процедуру вступления и выхода
-- Порядок принятия решений
-- Распределение интеллектуальной собственности
-- Ответственность и страхование
+**Advantages:**
+- **Theoretically grounded:** the only distribution scheme satisfying efficiency, symmetry, linearity, and dummy player axioms (Shapley, 1953)
+- **Manipulation-resistant:** marginal contribution is difficult to inflate without genuine model improvement
+- **Proportional:** participants receive credits strictly corresponding to their real impact on model quality
+- **Resistant to large participant dominance:** Shapley value evaluates marginal contribution, not absolute data volume
 
-**Центральный оркестратор** — отдельное юридическое лицо (дочерняя структура консорциума), действующее по договору.
+**Computational implementation:**
+- Shapley value estimation is performed by the central orchestrator after each round or epoch
+- Monte Carlo method with 100–200 node permutation samples
+- **Scaling alternative:** for >20 nodes, approximation via influence functions or stratified sampling
 
-### Двухуровневая модель для разных типов участников
+Participants receive **contribution credits** convertible to benefits.
 
-Учитывая принципиально различные интересы и профили рисков клиник и фармацевтических компаний, вводится двухуровневая структура:
-
-| Уровень | Участники | Права | Обязанности |
-|---------|-----------|-------|-------------|
-| **Клинический уровень** | Больницы, диагностические центры, амбулатории | Полное голосование по клиническим вопросам; доступ к моделям; индивидуальная донастройка | Предоставление обезличенных клинических данных; соблюдение этических норм |
-| **Промышленный уровень** | Фармацевтические компании, CRO | Наблюдатели в клинических вопросах; полное голосование по коммерческим вопросам; доступ к агрегированным данным | Предоставление данных клинических испытаний; финансовая поддержка (в фазе 2–3) |
-
-### Мультистейкхолдерный совет
-
-| Категория | Статус |
-|-----------|--------|
-| Представители клиник (3–5) | Голосующие |
-| Представители фармацевтических компаний (2–3) | Голосующие |
-| Пациентские организации (1–2) | Наблюдатели |
-| Юристы по защите данных (1) | Эксперты |
-| Этические комитеты (1) | Эксперты |
-| Технические аудиторы (1) | Без права голоса |
-
-### Внешний экспертный совет (External Clinical Advisory Board)
-
-Для обеспечения независимой клинической экспертизы создаётся внешний экспертный совет:
-
-| Роль | Функции | Бюджет |
-|------|---------|--------|
-| 2–3 независимых клинициста | Оценка клинической значимости, валидация подходов, рекомендации по улучшению | €20 000 (гонорары, командировки) |
-
-Встречи совета проводятся 2 раза в год в онлайн-формате.
-
-### Шесть принципов управления
-
-1. **Сырые данные не покидают клинику** — архитектурное требование, проверяемое аудитом
-2. **Каждый исходящий вклад проверен на приватность** — автоматически и выборочно вручную
-3. **Каждый вклад взвешен по полезности** — через систему Shapley value
-4. **Каждый участник получает скоринг вклада** — прозрачно, с возможностью апелляции
-5. **Каждая модель проверяется на смещения** — перед релизом обязательный аудит
-6. **Коммерческие выгоды распределяются прозрачно** — по формуле, утверждённой советом
+**Free-rider protection:** Access to the global model and its new versions is granted only to participants whose accumulated contribution score exceeds a set threshold (e.g., 5% of the mean). This incentivizes active participation and prevents benefit without contribution.
 
 ---
 
-## Юридическая база
+## What Participants Receive
 
-### Соглашение об использовании данных (Data Use Agreement — DUA)
+**Clinics:**
+- Access to best AI models without losing data control
+- Licensing discounts
+- Priority access to new versions
+- Individual model fine-tuning on their own data
+- Anonymous benchmarking
 
-Типовой шаблон DUA, подписываемый каждым участником, включает:
-- Определение объёма и типа предоставляемых данных
-- Запрет на передачу сырых данных третьим сторонам
-- Обязательство по соблюдению протоколов обезличивания
-- Ответственность за утечки данных
-- Порядок расторжения соглашения
+**Pharmaceutical companies:**
+- Access to diverse real-world data without jurisdictional risks
+- Post-marketing effectiveness analysis
+- Accelerated R&D through federated cohorts
 
-**Процесс:** переговоры по DUA начинаются за 3 месяца до технической разработки. Типовой шаблон утверждается юристами консорциума. Подписание DUA является условием допуска к технической интеграции.
+**All participants:**
+- Proportional share of commercial revenue
+- Participation in consortium governance
 
-### Этическое одобрение (IRB)
+---
 
-Каждое учреждение-участник получает одобрение локального этического комитета (IRB) перед началом участия. Процесс включает:
-- Подтверждение, что передаются только обезличенные данные
-- Информированное согласие пациентов (где требуется по национальному законодательству)
-- Ежегодный пересмотр одобрения
+## Governance Model
 
-**Стратегия:** прохождение IRB осуществляется параллельно во всех клиниках-участниках с общей продолжительностью до 3 месяцев. Координатор (WP4) предоставляет шаблоны документов и поддерживает учреждения в процессе.
+### Legal Structure
 
-**Поддержка:** Медицинский консультант проекта (Medical Consultant) предоставляет шаблоны документов, консультирует клиники по вопросам этического одобрения и сопровождает процесс прохождения IRB.
+The consortium is established as a **non-profit partnership** under the laws of the country of registration (Georgia or an EU member state). Participants sign a **Consortium Agreement** defining:
 
-### Data Steward (ответственный за данные)
+- Rights and obligations of participants
+- Admission and exit procedures
+- Decision-making processes
+- Intellectual property distribution
+- Liability and insurance
 
-В каждой организации-участнике назначается **Data Steward** — сотрудник, ответственный за:
-- Координацию предоставления данных в соответствии с DUA
-- Обеспечение соблюдения протоколов обезличивания
-- Взаимодействие с локальным IRB
-- Отчётность о любых инцидентах, связанных с данными
+**Central Orchestrator** — a separate legal entity (consortium subsidiary) operating under contract.
 
-### GDPR (ЕС)
+### Two-Tier Model for Different Participant Types
 
-- **Применимость:** если в проекте участвуют учреждения из ЕС или обрабатываются данные граждан ЕС
-- **Статья 9 (специальные категории данных):** обновления модели рассматриваются как обработка данных о здоровье
-- **Правовое основание:** информированное согласие пациентов или национальная правовая норма для вторичного использования данных (в соответствии с GDPR Art. 9(2)(i) и (j))
-- **DPIA:** оценка влияния на защиту данных обязательна для каждого участника из ЕС
-- **Уведомление об утечках:** в течение 72 часов
+Given the fundamentally different interests and risk profiles of clinics and pharmaceutical companies, a two-tier structure is introduced:
+
+| Tier | Participants | Rights | Obligations |
+|------|--------------|--------|-------------|
+| **Clinical Tier** | Hospitals, diagnostic centers, clinics | Full voting on clinical matters; model access; individual fine-tuning | Provision of de-identified clinical data; ethical compliance |
+| **Industrial Tier** | Pharmaceutical companies, CROs | Observer status on clinical matters; full voting on commercial matters; access to aggregated data | Provision of trial data; financial support (Phases 2–3) |
+
+### Multi-Stakeholder Board
+
+| Category | Status |
+|----------|--------|
+| Clinic representatives (3–5) | Voting |
+| Pharmaceutical representatives (2–3) | Voting |
+| Patient organizations (1–2) | Observers |
+| Data protection lawyers (1) | Experts |
+| Ethics committees (1) | Experts |
+| Technical auditors (1) | Non-voting |
+
+### External Clinical Advisory Board
+
+To ensure independent clinical expertise, an external advisory board is established:
+
+| Role | Functions | Budget |
+|------|-----------|--------|
+| 2–3 independent clinicians | Clinical significance assessment, approach validation, improvement recommendations | €20,000 (honoraria, travel) |
+
+Board meetings are held twice a year online.
+
+### Six Governance Principles
+
+1. **Raw data never leaves the clinic** — architectural requirement, auditable
+2. **Every outgoing contribution is privacy-verified** — automatically and selectively manually
+3. **Every contribution is weighted by utility** — via Shapley value system
+4. **Every participant receives a contribution score** — transparent, with appeal possible
+5. **Every model is audited for bias** — mandatory before release
+6. **Commercial benefits are distributed transparently** — via board-approved formula
+
+---
+
+## Legal Framework
+
+### Data Use Agreement (DUA)
+
+Standard DUA template signed by each participant includes:
+- Definition of data scope and type
+- Prohibition on raw data transfer to third parties
+- Obligation to comply with de-identification protocols
+- Liability for data breaches
+- Termination procedures
+
+**Process:** DUA negotiations begin 3 months before technical development. Standard template approved by consortium lawyers. DUA signing is a condition for technical integration.
+
+### Ethical Approval (IRB)
+
+Each participating institution obtains local IRB approval before participation. The process includes:
+- Confirmation that only de-identified data is transferred
+- Patient informed consent (where required by national law)
+- Annual re-approval
+
+**Strategy:** IRB approval is obtained in parallel across all participating clinics, with total duration up to 3 months. The coordinator (WP4) provides document templates and supports institutions through the process.
+
+**Support:** The Medical Consultant provides document templates, advises clinics on ethical approval, and accompanies the IRB process.
+
+### Data Steward
+
+Each participating organization appoints a **Data Steward** responsible for:
+- Coordinating data provision per DUA
+- Ensuring compliance with de-identification protocols
+- Liaising with local IRB
+- Reporting any data-related incidents
+
+### GDPR (EU)
+
+- **Applicability:** if EU institutions participate or EU citizen data is processed
+- **Article 9 (special categories of data):** model updates are considered health data processing
+- **Legal basis:** patient informed consent or national legal provision for secondary data use (GDPR Art. 9(2)(i) and (j))
+- **DPIA:** mandatory for each EU participant
+- **Breach notification:** within 72 hours
 
 ### Georgian Personal Data Protection Law (PDPL, 2011, amended 2023)
 
-- **Соответствие:** закон гармонизирован с GDPR, требования аналогичны
-- **Согласие:** требуется для обработки медицинских данных (если иное не предусмотрено законом)
-- **Уведомление об утечках:** в течение 72 часов в Personal Data Protection Service of Georgia
-- **Национальный орган:** Personal Data Protection Service of Georgia
+- **Compliance:** the law is harmonized with GDPR; requirements are similar
+- **Consent:** required for medical data processing (unless otherwise provided by law)
+- **Breach notification:** within 72 hours to the Personal Data Protection Service of Georgia
+- **National authority:** Personal Data Protection Service of Georgia
+- **Interpretation note:** In case of interpretive divergence, the consortium follows the stricter standard (GDPR + EDPB Guidelines 05/2014). The admissibility of the de-identification method will be confirmed by a preliminary opinion from the Georgian regulator (requested in April 2026).
 
 ---
 
-## Интеллектуальная собственность и финансовая модель
+## Intellectual Property and Financial Model
 
-### IP-режим
+### IP Regime
 
-| Тип результата | Права |
-|----------------|-------|
-| Базовая модель | Совместная собственность консорциума, лицензируется участникам по льготной ставке |
-| Адаптации под участника (fine-tuning) | Исключительная собственность участника |
-| Локальные компоненты (адаптеры, скрипты) | Собственность участника с открытой лицензией для консорциума |
-| Методология, публикации | Open Access с указанием авторства консорциума |
+| Result Type | Rights |
+|-------------|--------|
+| Base model | Joint consortium ownership, licensed to participants at preferential rate |
+| Participant adaptations (fine-tuning) | Exclusive participant ownership |
+| Local components (adapters, scripts) | Participant ownership with open license to consortium |
+| Methodology, publications | Open Access with consortium attribution |
 
-### Финансовая модель
+### Financial Model
 
-| Фаза | Период | Механизм |
-|------|--------|----------|
-| **Фаза 1 — пилот** | 12 месяцев | Грантовое финансирование (Horizon Europe), участники не платят, накапливают кредиты |
-| **Фаза 2 — масштабирование** | запускается при наличии ≥10 участников и валидированной модели | Вступительные взносы для новых участников; лицензирование внешним организациям; 70% выручки — участникам пропорционально кредитам (Shapley value), 30% — развитие платформы |
-| **Фаза 3 — устойчивость** | после достижения операционной стабильности (≈36 месяцев) | Ежегодные членские взносы (дифференцированные по типу участника); лицензирование как основной доход; коммерческие услуги (обучение под заказ) |
+| Phase | Period | Mechanism |
+|-------|--------|-----------|
+| **Phase 1 — Pilot** | 12 months | Grant funding (Horizon Europe), participants pay nothing, accumulate credits |
+| **Phase 2 — Scaling** | Launches with ≥10 participants and validated model | Entry fees for new participants; licensing to external organizations; 70% revenue to participants proportional to credits (Shapley value), 30% to platform development |
+| **Phase 3 — Sustainability** | After operational stability (≈36 months) | Annual membership fees (differentiated by participant type); licensing as primary income; custom training services |
 
-**Членские взносы (Фаза 3):**
-- Клиники: от €5 000/год (в зависимости от размера учреждения)
-- Фармацевтические компании: от €50 000/год
-- Исследовательские организации: €0–5 000/год
+**Membership fees (Phase 3):**
+- Clinics: from €5,000/year (depending on institution size)
+- Pharmaceutical companies: from €50,000/year
+- Research organizations: €0–5,000/year
 
-**Лицензирование моделей (для внешних организаций):**
-- Стандартная лицензия: от €100 000 за модель
-- Специализированные адаптации: по согласованию
+**Model licensing (for external organizations):**
+- Standard license: from €100,000 per model
+- Custom adaptations: by negotiation
 
-**Механизм защиты от безбилетников:** доступ к глобальной модели предоставляется только участникам, чей накопленный скоринг вклада (Shapley value) за последние 12 месяцев превышает 5% от среднего значения по консорциуму. Участники, не достигшие порога, теряют доступ до восстановления активности.
+**Free-rider protection mechanism:** Access to the global model is granted only to participants whose accumulated contribution score (Shapley value) over the last 12 months exceeds 5% of the consortium mean. Participants below the threshold lose access until activity resumes.
 
 ---
 
 ## MVP (Minimum Viable Product)
 
-### Сценарий
-**Предсказание риска госпитализации у пациентов с сахарным диабетом 2 типа в течение 12 месяцев**
+### Scenario
+**Prediction of hospitalization risk in type 2 diabetes patients within 12 months**
 
-### Обоснование выбора
-- Диабет 2 типа широко распространён, данные есть в большинстве клиник
-- Исход (госпитализация) чётко определён и регистрируется
-- Клиническая ценность высока — снижение затрат, улучшение амбулаторного ведения
-- Можно обойтись без сложной визуализации (только структурированные данные)
+### Justification
+- Type 2 diabetes is widespread; data exists in most clinics
+- Outcome (hospitalization) is clearly defined and recorded
+- High clinical value — cost reduction, improved outpatient management
+- No complex imaging required (only structured data)
 
-### Участники пилота
+### Pilot Participants
 
-| Тип | Количество | Кандидаты (статус) |
-|-----|------------|-------------------|
-| Клиники | 3–5 | **Aversi Clinic** (переговоры начаты), **GeoHospitals** (предварительное согласие), **Iashvili Children's Hospital** (диабетологическое отделение, переговоры начаты) |
-| Фармацевтическая компания | 1 | **TBC** (поиск активен) |
-| EU технический партнёр | 1 | **TBC** (DFKI, Fraunhofer, или университет ЕС) |
-| EU медицинский партнёр (опционально) | 0–1 | **TBC** (Charité Berlin, Karolinska Institutet, Erasmus MC) — для усиления институциональной базы |
+| Type | Count | Candidates (status) |
+|------|-------|---------------------|
+| Clinics | 3–5 | **Aversi Clinic** (negotiations started), **GeoHospitals** (preliminary agreement), **Iashvili Children's Hospital** (diabetology department, negotiations started) |
+| Pharmaceutical company | 1 | **TBC** (active search) |
+| EU technical partner | 1 | **TBC** (DFKI, Fraunhofer, or EU university) |
+| EU medical partner (optional) | 0–1 | **TBC** (Charité Berlin, Karolinska Institutet, Erasmus MC) — to strengthen institutional base |
 
-### Ключевые эксперты (найм на грантовые средства)
+### Key Experts (hired with grant funds)
 
-| Роль | Функции | FTE | Бюджет (€) |
-|------|---------|-----|------------|
-| **Medical Consultant** | Клиническая валидация, взаимодействие с врачами, интерпретация результатов, подготовка IRB | 0.5 | 60 000 |
-| **Technical Expert (Database Systems)** | Разработка ETL, настройка PostgreSQL/OMOP, интеграция с HIS/EHR | 1.0 | 60 000 |
+| Role | Functions | FTE | Budget (€) |
+|------|-----------|-----|------------|
+| **Medical Consultant** | Clinical validation, physician liaison, result interpretation, IRB preparation | 0.5 | 60,000 |
+| **Technical Expert (Database Systems)** | ETL development, PostgreSQL/OMOP setup, HIS/EHR integration | 1.0 | 60,000 |
 
-### Реалистичный таймлайн
+### Realistic Timeline
 
-| Этап | Длительность | Описание |
-|------|--------------|----------|
-| **Юридическая подготовка** | 3 месяца | Подготовка DUA, прохождение IRB в каждой клинике, юридический меморандум по PDPL/GDPR, назначение Data Steward |
-| **Техническая разработка** | 3 месяца | Разработка локального узла, нормализации, Shapley value скоринга, агрегации |
-| **Развёртывание и пилот** | 6 месяцев | Развёртывание в 3–5 клиниках, федеративное обучение, валидация |
-| **Итого** | **12 месяцев** | |
+| Phase | Duration | Description |
+|-------|----------|-------------|
+| **Legal preparation** | 3 months | DUA preparation, IRB approval at each clinic, PDPL/GDPR legal memorandum, Data Steward appointment |
+| **Technical development** | 3 months | Local node development, normalization, Shapley value scoring, aggregation |
+| **Deployment and pilot** | 6 months | Deployment at 3–5 clinics, federated learning, validation |
+| **Total** | **12 months** | |
 
-### Минимальный набор данных
+### Minimum Data Set
 
-| Поле | Источник | Формат |
-|------|----------|--------|
-| Возраст | Демография | 5-летние интервалы |
-| Пол | Демография | M/F/Other |
-| Дата постановки диагноза диабет 2 типа | Диагнозы | Год (без дня) |
-| HbA1c (последнее) | Лаборатория | Числовое значение |
-| ИМТ | Физикальный осмотр | Числовое значение |
-| Осложнения (нефропатия, ретинопатия) | Диагнозы | Бинарные флаги |
-| Госпитализация за последние 12 месяцев | События | Бинарный флаг |
-| Госпитализация в следующие 12 месяцев (исход) | События | Бинарный флаг (целевая переменная) |
+| Field | Source | Format |
+|-------|--------|--------|
+| Age | Demographics | 5-year intervals |
+| Sex | Demographics | M/F/Other |
+| Type 2 diabetes diagnosis date | Diagnoses | Year (no day) |
+| HbA1c (most recent) | Laboratory | Numeric |
+| BMI | Physical exam | Numeric |
+| Complications (nephropathy, retinopathy) | Diagnoses | Binary flags |
+| Hospitalization in last 12 months | Events | Binary flag |
+| Hospitalization in next 12 months (outcome) | Events | Binary flag (target) |
 
-### Критерии успеха
-- Модель достигает **AUC > 0.75** на отложенной валидационной выборке
-- **Ни одна сырая запись пациента** не покинула учреждение (подтверждается аудитом)
-- **Shapley value скоринг** работает и признаётся участниками
-- **Техническая интероперабельность** обеспечена для всех 3–5 клиник
-- **Все юридические требования** (DUA, IRB) выполнены для каждой клиники
+### Success Criteria
+- Model achieves **AUC > 0.75** on held-out validation set
+- **No raw patient record** leaves any institution (audit-confirmed)
+- **Shapley value scoring** works and is accepted by participants
+- **Technical interoperability** ensured for all 3–5 clinics
+- **All legal requirements** (DUA, IRB) completed for each clinic
 
-### Клиническая валидация
+### Clinical Validation
 
-Клиническая валидация обеспечивается через:
+Clinical validation is ensured through:
 
-1. **Медицинского консультанта (0.5 FTE)** — независимый врач-исследователь с опытом в диабетологии, ответственный за:
-   - Верификацию клинической значимости модели
-   - Взаимодействие с врачами в пилотных клиниках
-   - Интерпретацию результатов
-   - Подготовку материалов для IRB
+1. **Medical Consultant (0.5 FTE)** — independent physician-researcher with diabetology experience, responsible for:
+   - Verification of clinical significance
+   - Liaison with physicians at pilot clinics
+   - Result interpretation
+   - IRB materials preparation
 
-2. **Вовлечение врачей пилотных клиник** — участие в валидации на месте, обратная связь по клинической применимости
+2. **Pilot clinic physician involvement** — on-site validation participation, clinical applicability feedback
 
-3. **Внешний экспертный совет** — 2–3 независимых клинициста для оценки клинической значимости и методологии
+3. **External Clinical Advisory Board** — 2–3 independent clinicians for clinical significance and methodology assessment
 
 ---
 
-## Технический стек
+## Technical Stack
 
-| Компонент | Выбор | Обоснование |
-|-----------|-------|-------------|
-| Федеративное обучение | **Flower** + **OpenFL** | Flower — гибкость, OpenFL — зрелость для медицинских приложений |
-| **Алгоритм агрегации** | **FedProx** (Li et al. 2020, MLSys) с μ=0.1–1.0 | Устойчивость к не-IID данным — критически важно для гетерогенных клинических данных; μ подбирается в ходе пилота |
-| **Резервный алгоритм** | **SCAFFOLD** (Karimireddy et al. 2020) | Для случаев сильной гетерогенности; переключение по мониторингу сходимости |
-| **Робастная агрегация** | **Krum** (Blanchard et al. 2017) | Устойчивость к до 25% вредоносных узлов (Byzantine tolerance); для MVP выбирается Krum за баланс эффективности и сложности |
-| Безопасная агрегация | **SecAgg+** (Bonawitz et al. 2017) | Оркестратор не видит индивидуальные обновления |
-| Дифференциальная приватность | **TensorFlow Privacy / Opacus** с **Rényi DP** | Стандартные библиотеки; ε=2.0/раунд, δ=10⁻⁵, общий бюджет ε_total≤10.0 |
-| Оценка вклада | **Federated Shapley Value** (Wang et al. 2020) с аппроксимацией Монте-Карло (M=100–200) | Теоретически обоснованная, защищённая от манипуляций; вычислительные затраты ~10 мин/раунд для 10 узлов |
-| Нормализация в OMOP | **OHDSI WhiteRabbit** + собственный ETL | Проверенный инструментарий |
-| Интероперабельность | **HL7/FHIR** → OMOP | FHIR — стандарт обмена, OMOP — для анализа |
-| Хранение на узле | **PostgreSQL** + OMOP CDM | Open source, поддерживает необходимые объёмы |
-| Безопасность | **TLS 1.3**, шифрование на диске, HSM для ключей | Соответствие требованиям медицинских данных |
+| Component | Choice | Justification |
+|-----------|--------|----------------|
+| Federated learning | **Flower** + **OpenFL** | Flower — flexibility, OpenFL — maturity for medical applications |
+| **Aggregation algorithm** | **FedProx** (Li et al., 2020, MLSys) with μ=0.1–1.0 | Robustness to non-IID data — critical for heterogeneous clinical data; μ tuned during pilot |
+| **Backup algorithm** | **SCAFFOLD** (Karimireddy et al., 2020) | For high heterogeneity cases; switching based on convergence monitoring |
+| **Robust aggregation** | **Krum** (Blanchard et al., 2017) | Tolerance to up to 25% malicious nodes; chosen for MVP for balance of effectiveness and complexity |
+| Secure aggregation | **SecAgg+** (Bonawitz et al., 2017) — full implementation in WP3 | Orchestrator does not see individual updates |
+| Differential privacy | **TensorFlow Privacy / Opacus** with **Rényi DP** | Standard libraries; ε=2.0/round, δ=10⁻⁵, total budget ε_total≤10.0 |
+| Contribution scoring | **Federated Shapley Value** (Wang et al., 2020) with Monte Carlo approximation (M=100–200) | Theoretically grounded, manipulation-resistant; computational cost ~10 min/round for 10 nodes |
+| OMOP normalization | **OHDSI WhiteRabbit** + custom ETL | Proven tooling |
+| Interoperability | **HL7/FHIR** → OMOP | FHIR for exchange, OMOP for analysis |
+| Node storage | **PostgreSQL** + OMOP CDM | Open source, supports required volumes |
+| Security | **TLS 1.3**, disk encryption, HSM for keys | Medical data compliance |
 
-### Требования к оборудованию узла (минимальные)
+### Node Hardware Requirements (Minimum)
 
-| Компонент | Минимальные требования |
-|-----------|------------------------|
-| CPU | 8 ядер, 3.0+ GHz |
+| Component | Minimum Requirements |
+|-----------|---------------------|
+| CPU | 8 cores, 3.0+ GHz |
 | RAM | 32 GB |
-| GPU | NVIDIA Tesla T4 или аналогичная с 16 GB VRAM (для обучения) |
-| Хранилище | 1 TB SSD (для OMOP CDM и логов) |
-| Сеть | 100 Mbps, статический IP |
-| Безопасность | TPM 2.0 или HSM для ключей шифрования |
+| GPU | NVIDIA Tesla T4 or equivalent with 16 GB VRAM (for training) |
+| Storage | 1 TB SSD (for OMOP CDM and logs) |
+| Network | 100 Mbps, static IP |
+| Security | TPM 2.0 or HSM for encryption keys |
 
 ---
 
-## Сравнение с существующими решениями
+## Comparison with Existing Solutions
 
-| Решение | Описание | Отличие FCLC |
-|---------|----------|--------------|
-| **FedAvg** (McMahan et al. 2017) | Базовый алгоритм федеративного усреднения | Используем FedProx/SCAFFOLD для не-IID данных |
-| **FATE (WeBank)** | Полный FL-фреймворк, развёрнутый в банковском и здравоохранительном секторах Китая | FCLC отличается кооперативной (некоммерческой) моделью управления и системой стимулов на основе Shapley value |
-| **NVFlare (NVIDIA)** | Использован в 20-институциональном исследовании COVID-19 (Rieke et al. 2020) | FCLC может использовать NVFlare как технический субстрат, добавляя governance-слой |
-| **OpenFL (Intel)** | Production-grade FL для медицинских приложений | Аналогично NVFlare — технический субстрат |
-| **FeTS** (Pati et al. 2022) | Крупнейшее FL-исследование в онкологии (71 институт, 6 континентов) | Результаты по сходимости на не-IID данных релевантны для MVP FCLC |
-| **MELLODDY** (Bender et al. 2021) | Консорциум 10 фармкомпаний для FL в drug discovery | Наиболее близкий прецедент к предлагаемой модели с фармацевтическими узлами; FCLC добавляет кооперативную структуру и прозрачное распределение выгод |
-| **PySyft / OpenMined** | Библиотеки для криптографических примитивов | FCLC использует эти библиотеки как технический субстрат |
-| **Flower** (flwr) | Framework-agnostic FL-библиотека | Используется как основа, поверх которой надстраивается governance-слой |
+| Solution | Description | FCLC Distinction |
+|----------|-------------|-------------------|
+| **FedAvg** (McMahan et al., 2017) | Basic federated averaging algorithm | Use FedProx/SCAFFOLD for non-IID data |
+| **FATE (WeBank)** | Full FL framework deployed in banking and healthcare in China | Cooperative (non-profit) governance model + Shapley value incentives |
+| **NVFlare (NVIDIA)** | Used in 20-institution COVID-19 study (Rieke et al., 2020) | Can use NVFlare as technical substrate, adding governance layer |
+| **OpenFL (Intel)** | Production-grade FL for medical applications | Same as NVFlare — technical substrate |
+| **FeTS** (Pati et al., 2022) | Largest FL study in oncology (71 institutions, 6 continents) | Convergence results on non-IID data relevant to FCLC MVP |
+| **MELLODDY** (Bender et al., 2021) | Consortium of 10 pharma companies for FL in drug discovery | Closest precedent to proposed model with pharmaceutical nodes; adds cooperative structure and transparent benefit distribution |
+| **PySyft / OpenMined** | Cryptographic primitives libraries | Used as technical substrate |
+| **Flower (flwr)** | Framework-agnostic FL library | Used as foundation with governance layer on top |
 
-**Уникальность FCLC:**
-- Фокус на **низкоресурсные национальные системы здравоохранения** (Грузия, регион Южного Кавказа)
-- **Кооперативная (некоммерческая) модель управления** с двухуровневой структурой (клиники + фарма)
-- **Теоретически обоснованная система стимулов** (Shapley value) вместо ad hoc формул
-- Интеграция с **AIM экосистемой** (DeepSeek API, единые политики управления данными)
-- **Гибкая структура консорциума** с привлечёнными экспертами вместо институциональных партнёров, что снижает административные барьеры
+**FCLC uniqueness:**
+- Focus on **low-resource national health systems** (Georgia, South Caucasus region)
+- **Cooperative (non-profit) governance model** with two-tier structure (clinics + pharma)
+- **Theoretically grounded incentive system** (Shapley value) instead of ad hoc formulas
+- Integration with **AIM ecosystem** (DeepSeek API, unified data governance policies)
+- **Flexible consortium structure** with hired experts instead of institutional partners, reducing administrative barriers
 
 ---
 
-## I. Законность: как система собирает и использует данные пациентов, не нарушая закон
+## Unified Scientific Ecosystem: Ze · CDATA · BioSense · FCLC
 
-### Принципиальная позиция
+### Overview
 
-FCLC не просто «соответствует GDPR» — система архитектурно невозможна без соблюдения закона. Это не юридический слой поверх кода; это сам код.
+FCLC is not a standalone platform — it is the **federated validation infrastructure** for a multimodal longevity research ecosystem. The scientific programme links three empirically grounded components: (1) a mechanistic aging model (CDATA, R²=0.84 cross-sectional), (2) a non-invasive EEG/HRV complexity biomarker (χ_Ze, exploratory pilot on N=196, d=1.694, p<0.0001 — see caveat below), and (3) federated multi-center learning infrastructure (FCLC). The central hypothesis is: **can multimodal wearable biomarkers federated across heterogeneous clinical sites improve prediction of aging-associated clinical outcomes?**
 
-### Почему передача данных законна
-
-**Сырые данные не передаются вообще.** Это не декларация — это техническая невозможность:
-
+**Scientific coherence — data flow:**
 ```
-Пациент → HIS/EHR клиники
-                   ↓
-         [Локальный узел FCLC]
-         1. Удаление идентификаторов  ← fclc-core/src/deident.rs
-         2. Обобщение (k≥5)           ← fclc-core/src/kanon.rs
-         3. Локальное обучение         ← fclc-core/src/training.rs
-         4. DP-шум на градиентах      ← fclc-core/src/dp.rs  (ε=2.0)
-         5. SecAgg маски              ← fclc-core/src/secagg.rs
-                   ↓
-         [Оркестратор получает]
-         ТОЛЬКО: зашумлённый агрегат весов модели
-         НЕ ПОЛУЧАЕТ: записи, диагнозы, имена, даты
+BioSense (χ_Ze, HRV, VOC)  →  FCLC node  →  federated training  →  CDATA-calibrated outcome model
+     EEG/HRV complexity             de-id + DP gradient              longitudinal risk prediction
 ```
 
-Оркестратор математически неспособен восстановить данные пациента из зашумлённого агрегата — это доказано в Dwork et al. 2006 (ε-differential privacy) и подтверждено нашим аудитом (gradient inversion PSNR < 18 dB, успех атаки: 0/32).
+Each component has independent empirical evidence; FCLC provides the population-scale infrastructure to test their joint predictive utility.
 
-### Правовые основания (по юрисдикциям)
+> ⚠️ **χ_Ze EIC Scope Note (BUG-v8-2 fix, 2026-04-11):** χ_Ze is listed here as a **future application / WP4 research question**, not a current FCLC deliverable. χ_Ze is an exploratory biomarker (pre-registered band pending, bootstrap CI pending, Theorem 5.1 inapplicable at d=2). In EIC Part A/B, χ_Ze should be described as: *"A candidate biomarker from Ze Vectors Theory, to be evaluated as an FCLC data stream in WP4; its clinical utility is an open research question."* Do not present χ_Ze as validated.
 
-| Юрисдикция | Норма | Основание для обработки |
-|------------|-------|------------------------|
-| ЕС | GDPR Art. 9(2)(i) и (j) | Общественный интерес в здравоохранении; научные исследования |
-| Грузия | PDPL 2011 (ред. 2023), Art. 6 | Согласие или законный интерес для медицинских целей |
-| Оба | Оба | Обезличенные агрегаты не являются персональными данными по определению |
+### Validation Roadmap
 
-**Ключевой правовой факт:** после применения слоёв 1–5 (см. выше) передаваемые данные перестают быть персональными данными по GDPR Art. 4(1). Это не интерпретация — это подтверждается WP29/EDPB Opinion 05/2014 on Anonymisation Techniques.
+| Phase | Timeline | Dataset | N | Primary Outcome |
+|-------|----------|---------|---|----------------|
+| **Internal validation (done)** | 2026-04 | MIMIC-IV (T2D readmission) | 12,543 | AUC=0.742±0.021 |
+| **External validation** | WP2, months 7–12 | eICU-CRD (independent multi-center) | ~70,000 | Generalisability AUC |
+| **Longitudinal pilot** | WP3, months 13–24 | 3 Georgian clinics + wearables | N≥200 | 12-month outcome |
+| **Longitudinal multi-center** | WP4, months 25–36 | 5+ EU clinics | N≥1000 | Biomarker-outcome HR |
 
-### Как это отражено в коде
+*Note: R²=0.84 for CDATA is cross-sectional. Longitudinal validation is an explicit deliverable in WP3–4.*
 
-| Модуль | Файл | Функция |
-|--------|------|---------|
-| Удаление идентификаторов | `fclc-core/src/deident.rs` | `deidentify_record()` — удаляет имя, точную дату, MRN, адрес |
-| k-анонимность | `fclc-core/src/kanon.rs` | `check_k_anonymity()` — подавляет группы с k < 5 |
-| DP-SGD | `fclc-core/src/dp.rs` | `add_gaussian_noise()` — ε=2.0/раунд, δ=10⁻⁵ |
-| SecAgg | `fclc-core/src/secagg.rs` | `mask_update()` — аддитивные маски, сумма = 0 |
-| Аудит | `fclc-core/src/audit.rs` | `log_privacy_event()` — каждое решение логируется |
+### Synergy Matrix
 
-**Аудитируемость:** каждый факт обезличивания, каждое применение DP-шума, каждая передача — в неизменяемом логе. IRB и регулятор могут проверить соответствие без доступа к данным.
+| Project | Provides to others | Receives from others |
+|---------|-------------------|----------------------|
+| **χ_Ze metric (BioSense)** | Non-invasive complexity biomarker (EEG/HRV); empirical evidence: d=1.694 on N=196 | FCLC for multi-center validation; CDATA for mechanistic interpretation |
+| **CDATA** | Mechanistic D(t) model (R²=0.84 cross-sectional); 5 falsifiable predictions; MCMC parameters | FCLC for longitudinal validation; BioSense as prospective D(t) proxy |
+| **FCLC** | Privacy-preserving federated infrastructure; Shapley incentives; Byzantine robustness | BioSense χ_Ze as feature source; CDATA model as prediction target |
 
----
+### Publications (as of April 2026)
 
-## II. Предиктивный сервис: подлинная доказательная наука
-
-### Проблема текущей «доказательной медицины»
-
-В 2005 году Иоаннидис показал, что большинство опубликованных медицинских исследований содержат ложноположительные результаты (Ioannidis JP. *Why Most Published Research Findings Are False*. PLoS Medicine, 2005, DOI: 10.1371/journal.pmed.0020124). Причины:
-
-- малые выборки с недостаточной мощностью
-- множественные сравнения без поправки
-- предвзятость публикаций
-- отсутствие независимой репликации
-- смешение корреляции и причинности
-
-**Клиническое следствие:** большинство «персонализированных» рекомендаций основаны на статистически уязвимых ассоциациях из малых когорт.
-
-### Как FCLC решает эту проблему структурно
-
-| Проблема Иоаннидиса | Решение FCLC | Механизм |
-|---------------------|-------------|---------|
-| Малые выборки | Федеративные когорты из N клиник | Федеративное обучение без передачи данных |
-| Не-репрезентативность | Разнородные реальные популяции | Множество клиник с разными демографиями |
-| Предвзятость публикаций | Все результаты регистрируются и аудитируются | `fclc-core/src/audit.rs` — полный лог |
-| Нет репликации | Кросс-клиническая валидация на каждом раунде | Federated evaluation после каждого раунда |
-| Ложная точность | Доверительные интервалы + bootstrap | Shapley value с CI: 0.342±0.021 |
-| P-hacking | Зафиксированный первичный исход до обучения | DUA фиксирует задачу до начала |
-
-### Прецизионная персонализированная профилактика
-
-Предиктивный сервис FCLC:
-
-1. **Индивидуальный риск-скор** — рассчитывается для конкретного пациента по модели, обученной на реальных данных N клиник
-2. **Доверительный интервал прогноза** — явно указывается; никакого «диагноза» без интервала
-3. **Объяснимость (SHAP)** — врач видит, какие факторы вносят вклад и насколько
-4. **Проспективная валидация** — модель тестируется на данных, которые не участвовали в обучении (временное разделение, а не случайное)
-5. **Репликация по умолчанию** — каждая модель валидируется как минимум на двух независимых узлах
-
-**Итог:** FCLC строит то, чего не хватает текущей «доказательной медицине» — статистически валидные, воспроизводимые, персонализированные предиктивные модели с измеримой неопределённостью.
+| Paper | Repository | Target Journal | Status |
+|-------|------------|----------------|--------|
+| Ze Theory (quantum mechanics) | Ze-public | *Longevity Horizon* | Published, DOI 10.65649/a874t352 |
+| CDATA | CDATA-public | *Annals of Rejuvenation Science* | Published, DOI 10.65649/cynx718 |
+| Ze observation as τ_Z expenditure | Ze-public / Articles | *Physical Review Letters* / *Found. Phys.* | Preprint, ready for submission |
+| Ze–CDATA Bridge Equations | Ze-public / Articles | *Physical Biology* | Preprint, ready for submission |
+| **BioSense flagship paper** | **BioSense-public / Articles** | ***npj Digital Medicine* (IF ≈ 15)** | **Preprint, ready for submission** |
+| FCLC federated protocol | FCLC-public | *Nature Machine Intelligence* | In preparation |
 
 ---
 
-## III. Планетарный масштаб: система рассчитана на каждого человека
+## Technology Readiness Levels (TRL)
 
-### Архитектурное решение
-
-FCLC изначально разработана для планетарного масштаба. Это не гипербола — это инженерное требование, которое определяет каждое архитектурное решение:
-
-| Решение | Почему оно масштабируется на 8 млрд |
-|---------|-------------------------------------|
-| Федеративная архитектура | Нет центрального хранилища — добавление узла не увеличивает нагрузку центра |
-| Асинхронные раунды (v2.0) | Узлы обновляются независимо — нет глобальной синхронизации |
-| OMOP CDM | Единая схема работает с любой HIS/EHR в мире |
-| HL7/FHIR | Международный стандарт обмена медицинскими данными |
-| Shapley value стимулы | Математически справедливо при любом числе участников |
-| Модульные узлы | Один узел = больница, поликлиника, аптека, носимое устройство |
-
-### Источник данных: 24/7 носимые устройства мониторинга здоровья
-
-Данные для планетарной модели здоровья не могут приходить только из клиник — клиники видят человека эпизодически. Непрерывный мониторинг обеспечивается носимыми устройствами:
-
-- **Частота:** 24/7, непрерывно
-- **Параметры:** ЧСС, SpO₂, температура, активность, сон, вариабельность ЧСС (HRV), кожно-гальваническая реакция, движение
-- **Протокол:** данные обрабатываются локально на устройстве; узел FCLC разворачивается на смартфоне или домашнем шлюзе; к оркестратору отправляются только обезличенные агрегаты (те же 5 уровней приватности)
-- **Масштаб:** каждый человек с устройством = потенциальный узел
-
-**Клиническая ценность непрерывного мониторинга:**
-- Ранние маркёры заболеваний до появления симптомов
-- Реальная траектория здоровья, а не «снимок» раз в год
-- Персонализация лечения по реальному ответу, а не по групповой статистике
+| Component | Current TRL | Target TRL | Justification |
+|-----------|-------------|------------|---------------|
+| Privacy stack (5-layer) | TRL 4 | TRL 6 | Validated on MIMIC-IV; k-anon + DP + SecAgg all active |
+| SecAgg+ (X25519 DH) | **TRL 4** | TRL 6 | X25519 + ChaCha20 + Shamir implemented; external audit WP3 |
+| FedProx + Krum | TRL 4 | TRL 6 | Validated on MIMIC-IV, batches ≥32 |
+| Shapley value scoring | TRL 4 | TRL 6 | Works for 5 nodes; influence functions for >20 in v2.0 |
+| HIS/EHR integration | TRL 3 | TRL 5 | Requires clinic pilot; FHIR + OMOP adapters built |
+| External validation | TRL 2 | TRL 5 | eICU-CRD validation planned in WP2 (months 7–12) |
 
 ---
 
-## IV. Собственные 24/7 носимые устройства: нет аналогов
+## Validation Results (MIMIC-IV, added 2026-04-06)
 
-### Позиционирование
+Paper *JMIR Medical Informatics* (v3.0, 2026-04-05) contains first quantitative validation of FCLC v1.0.
 
-Существующие носимые устройства (Apple Watch, Fitbit, Garmin, Samsung Galaxy Watch) имеют фундаментальный архитектурный изъян: **данные уходят в централизованные корпоративные облака**. Это:
+### Scenario
 
-- нарушает GDPR/PDPL для медицинских данных
-- делает пациента продуктом, а не субъектом
-- исключает клиническое использование из-за правовых рисков
-- несовместимо с федеративным обучением (нет локального узла)
+- **Dataset:** MIMIC-IV, N=12,543 T2D patients, 47,892 visits
+- **Task:** Predict 30-day readmission (binary classification)
+- **Model:** Logistic regression, 15 features (age, sex, LOS, prior hospitalizations, HbA1c, glucose, creatinine, BP, HR, temp, 5 comorbidities)
+- **Nodes:** 5 non-overlapping partitions (2,108–2,892 patients each)
 
-### Наше устройство
+### Performance Results (AUC-ROC)
 
-Мы разрабатываем собственное 24/7 носимое устройство мониторинга здоровья, которое:
+| Scenario | AUC (with DP) | AUC (without DP) | Local-only | Improvement |
+|----------|--------------|------------------|------------|-------------|
+| Baseline (5 honest nodes) | **0.742±0.021** | 0.763±0.019 | 0.712±0.031 | +3.0 pp (4.2%, p=0.008) |
+| Free-rider (4 honest + 1 noise) | 0.724±0.026 | 0.745±0.024 | 0.708±0.033 | −2.4% vs baseline |
+| Byzantine (4 honest + 1 attack ×100) | 0.735±0.023 | 0.758±0.021 | 0.710±0.030 | +3.5% |
 
-| Характеристика | Наше устройство | Конкуренты |
-|----------------|-----------------|------------|
-| Данные | Обрабатываются локально на устройстве | Отправляются в облако корпорации |
-| Приватность | DP-шум применяется до любой передачи | Нет DP; данные доступны компании |
-| Клиническая совместимость | Узел FCLC встроен в прошивку | Нет совместимости с FL |
-| Юридический статус | GDPR-совместим архитектурно | Требует отдельных соглашений |
-| Открытость | Open hardware + open firmware | Проприетарный стек |
-| Интеграция | Прямая интеграция с OMOP CDM | Нет стандартизации |
+### Privacy–Utility Trade-off (ε vs AUC)
 
-### Уникальность
-
-Ни одно существующее устройство не сочетает:
-- непрерывный медицинский мониторинг
-- локальную обработку с дифференциальной приватностью
-- встроенный узел федеративного обучения
-- открытую аппаратную и программную архитектуру
-- юридическую совместимость с клиническими требованиями ЕС и Грузии
-
-**Это не улучшение существующего — это другой класс устройств.**
-
-Проект носимого устройства публикуется в **полном открытом доступе** — hardware, firmware, протоколы. Цель: сделать персонализированный непрерывный мониторинг здоровья доступным для каждого человека на планете, независимо от страны и дохода.
-
----
-
-## Матрица рисков
-
-| Риск | Вероятность | Влияние | Меры митигации | Владелец |
-|------|-------------|---------|----------------|----------|
-| Повторная идентификация | Низкая | Критическое | Многоуровневый стек приватности + аудит | Privacy Lead |
-| Gradient inversion | Средняя | Критическое | DP шум, минимальный батч ≥32, робастная агрегация | Technical Lead |
-| Отравление данных (data poisoning) | Средняя | Высокое | Krum/медианная агрегация, репутационный скоринг, выявление выбросов | Technical Lead |
-| Предвзятость | Высокая | Среднее | Мониторинг распределений, стратифицированная валидация | Governance Board |
-| Неконсистентность этикеток | Высокая | Среднее | Скоринг качества, обратная связь клиницистам, медицинский консультант | Clinical Lead |
-| Доминирование крупных участников | Средняя | Среднее | Shapley value обеспечивает справедливую оценку маргинального вклада | Governance Board |
-| Задержки DUA | Высокая | Высокое | Начать процесс за 3 месяца до технической разработки; типовой шаблон; параллельные переговоры | Legal Lead |
-| Задержки IRB | Высокая | Высокое | Параллельное прохождение во всех клиниках; поддержка медицинского консультанта; шаблоны документов | Legal Lead |
-| Выбывание участника | Средняя | Среднее | Лист ожидания; резервные участники; модульная архитектура позволяет гибко подключать/отключать узлы | Coordinator |
-| Отсутствие медицинского Co-PI | Средняя | Высокое | Медицинский консультант (0.5 FTE) + внешний экспертный совет | Coordinator |
-| Задержка с наймом экспертов | Средняя | Среднее | Начать поиск на этапе подачи заявки; резервные кандидаты | Coordinator |
-| Регуляторное недоверие | Средняя | Критическое | Привлечение регуляторов на этапе пилота, юридический меморандум, прозрачная документация | Legal Lead |
-| Недоверие клиницистов | Высокая | Среднее | Объяснимые модели (SHAP, LIME), вовлечение врачей в валидацию, демонстрация на пилотных данных | Clinical Lead |
-| Несовместимость HIS | Средняя | Высокое | Модульные адаптеры, поддержка FHIR, резервные механизмы загрузки файлов, предварительный аудит инфраструктуры | Technical Lead |
-| Отсутствие EU партнёра | Средняя | Критическое | Активный поиск через сети DFKI, CLAIRE; письма поддержки к апрелю 2026 | Coordinator |
-
----
-
-## Результаты валидации (MIMIC-IV, добавлено 2026-04-06)
-
-Статья *JMIR Medical Informatics* (v3.0, 2026-04-05) содержит первую количественную валидацию FCLC v1.0.
-
-### Сценарий
-
-- **Датасет:** MIMIC-IV, N=12 543 пациента с СД2, 47 892 визита
-- **Задача:** Предсказание повторной госпитализации в течение 30 дней (бинарная классификация)
-- **Модель:** Логистическая регрессия, 15 признаков (возраст, пол, LOS, предыдущие госпитализации, HbA1c, глюкоза, креатинин, АД, ЧСС, темп, 5 коморбидностей)
-- **Узлы:** 5 непересекающихся разделов (2 108–2 892 пациентов каждый)
-
-### Результаты производительности (AUC-ROC)
-
-| Сценарий | AUC (с DP) | AUC (без DP) | Local-only | Улучшение |
-|----------|-----------|-------------|------------|-----------|
-| Baseline (5 честных узлов) | **0.742±0.021** | 0.763±0.019 | 0.712±0.031 | +3.0 пп (4.2%, p=0.008) |
-| Free-rider (4 честных + 1 шум) | 0.724±0.026 | 0.745±0.024 | 0.708±0.033 | −2.4% vs baseline |
-| Byzantine (4 честных + 1 атака ×100) | 0.735±0.023 | 0.758±0.021 | 0.710±0.030 | +3.5% |
-
-### Компромисс приватность–качество (ε vs AUC)
-
-| ε на раунд | ε_total (5 раундов) | AUC | Потери AUC |
-|-----------|---------------------|-----|-----------|
-| ∞ (нет DP) | ∞ | 0.763 | — |
+| ε per round | ε_total (5 rounds) | AUC | AUC loss |
+|-------------|--------------------|-----|----------|
+| ∞ (no DP) | ∞ | 0.763 | — |
 | 4.0 | 20.0 | 0.758 | −0.7% |
-| **2.0** | **10.0** | **0.742** | **−2.8%** ← выбранный |
+| **2.0** | **10.0** | **0.742** | **−2.8%** ← chosen |
 | 1.0 | 5.0 | 0.718 | −5.9% |
 | 0.5 | 2.5 | 0.685 | −10.2% |
 
-### Метрики аудита приватности
+### ε(T) Projection Over Training Duration (R6 fix — transparency)
 
-| Метрика | Результат | Интерпретация |
-|---------|-----------|---------------|
-| k-анонимность | 97.3% (2.7% подавлено) | ✅ |
-| Gradient inversion PSNR | <18 dB | ✅ Восстановление невозможно (порог ~20 dB) |
-| SSIM | 0.12±0.04 | ✅ Нет структурного сходства |
-| Cosine similarity | 0.09±0.03 | ✅ Ортогональные векторы |
-| Успех атаки | 0/32 (0%) | ✅ |
+**R6 concern:** ε=2.0/round may reach unacceptable values in long training runs.
+The table below shows ε_total as a function of rounds under both accounting methods.
 
-### Шепли-скоры (baseline сценарий)
+*Parameters: σ=0.89 (derived from ε=2.0, δ=1e-5), sampling_rate=0.013 (batch 32/dataset 2500)*
 
-| Узел | Шепли-скор | Ранг |
-|------|-----------|------|
+| Rounds (T) | Linear composition ε_total | RDP (Rényi, α-opt) ε_total | Δ (savings) | Privacy status |
+|------------|---------------------------|---------------------------|-------------|----------------|
+| 5 | 10.0 | ~2.1 | −7.9 | ✅ Within budget (both) |
+| 10 | 20.0 | ~3.1 | −16.9 | ✅ RDP acceptable; linear exceeded |
+| 20 | 40.0 | ~4.6 | −35.4 | ⚠️ RDP borderline; linear unusable |
+| 50 | 100.0 | ~8.4 | −91.6 | 🔴 Both degrade; budget must be reset per client |
+| 100 | **200.0** | **~13.2** | −186.8 | 🔴 RDP exceeded; training must stop |
+
+**Implementation:** `RdpAccountant::epsilon_projection(sigma, sampling_rate, additional_rounds)` is available in `fclc-core/src/dp/renyi.rs`. The orchestrator MUST check `epsilon_projection` before authorizing each new round and refuse participation if projected ε exceeds the agreed budget (default: ε_total_max = 10.0).
+
+**Per-client budget reset:** When a node exhausts its ε budget, it is removed from the round (dropout-safe via SecAgg+ Shamir shares). A new training period starts with a fresh client cohort or fresh data split.
+
+### ε Reduction Roadmap: DP-SGD → PATE (R4-v4 fix)
+
+**Critical gap:** ε=2.0/round is unacceptably high for medical data by international standards (NIST SP 800-188 recommends ε≤1.0; medical FL literature targets ε<0.5).
+
+**Plan:**
+
+| Phase | Mechanism | Target ε | Timeline |
+| :--- | :--- | :--- | :--- |
+| **Current (v1.0)** | DP-SGD, Gaussian, ε=2.0/round, RDP accounting | 2.0/round → ~13.2 after 100 rounds | Now |
+| **v1.5** | DP-SGD with tighter calibration: reduce σ to achieve ε=1.0/round. Accept ~4% additional AUC loss. | 1.0/round → ~6.5 after 100 rounds | WP1 (months 1–3) |
+| **v2.0** | **PATE (Private Aggregation of Teachers' Ensembles, Papernot et al. 2017/2018)**: clinics = teachers, student trained on noisy votes. Each teacher query uses <<ε vs DP-SGD. | **~0.4 total** (1000 queries, σ_vote=50, δ=1e-5) | WP2 (months 7–12) |
+
+**PATE architecture (planned v2.0):**
+```
+Teachers (clinics): train locally, NO DP required
+                ↓
+Aggregation: noisy vote counting with Gaussian noise (σ_vote=50)
+                ↓
+Student: trains on noisy labels using PUBLIC auxiliary data (NHANES subset)
+                ↓
+Total ε_student ≈ 0.4 at δ=1e-5 (vs 2.0/round DP-SGD)
+```
+
+**Prerequisite for PATE:** Public auxiliary dataset with similar distribution. Planned: NHANES (~5000 records, similar clinical features). Implemented as `PateConfig` in `fclc-core/src/model.rs`.
+
+### Privacy Audit Metrics
+
+| Metric | Result | Interpretation |
+|--------|--------|----------------|
+| k-anonymity | 97.3% (2.7% suppressed) | ✅ |
+| Gradient inversion PSNR | <18 dB | ✅ Reconstruction impossible (threshold ~20 dB) |
+| SSIM | 0.12±0.04 | ✅ No structural similarity |
+| Cosine similarity | 0.09±0.03 | ✅ Orthogonal vectors |
+| Attack success | 0/32 (0%) | ✅ |
+
+### Shapley Scores (baseline scenario)
+
+| Node | Shapley score | Rank |
+|------|--------------|------|
 | A | 0.342±0.021 | 1 |
 | B | 0.318±0.019 | 2 |
 | C | 0.309±0.022 | 3 |
 | D | 0.298±0.018 | 4 |
 | E | 0.287±0.020 | 5 |
 
-Корреляция с локальным AUC: r=0.87, p=0.05. Free-rider: 0.089 < порог 0.0975 → **правильно обнаружен** (p<0.001).
+Correlation with local AUC: r=0.87, p=0.05. Free-rider: 0.089 < threshold 0.0975 → **correctly detected** (p<0.001).
 
-### Время работы
+### Runtime
 
-| Компонент | Время |
+| Component | Time |
+|-----------|------|
+| Full round | 47±8 sec |
+| Shapley computation (M=150) | 12.3±2.1 sec |
+| Data de-identification | 8.4±1.2 sec |
+| Local training | 2.1±0.3 sec |
+| Network transfer | 2.3 KB/round |
+
+---
+
+## Funding Instrument Selection
+
+**Recommended instrument: EIC Pathfinder Open**
+
+| Criterion | Match |
 |-----------|-------|
-| Полный раунд | 47±8 сек |
-| Вычисление Shapley (M=150) | 12.3±2.1 сек |
-| Обезличивание данных | 8.4±1.2 сек |
-| Локальное обучение | 2.1±0.3 сек |
-| Передача по сети | 2.3 KB/раунд |
+| Breakthrough innovation | Combination of federated learning + secure aggregation + Shapley value incentives + two-tier cooperative governance — unique |
+| TRL | 2–4 (current), post-pilot (12 months) — TRL 4 |
+| Budget | Up to €4M — justified by development, deployment, legal preparation, coordination |
+| Consortium | Georgia (associated country) + minimum 2 EU partners (in formation) |
+| Deadline | May 12, 2026 |
 
 ---
 
-## Roadmap v2.0 (добавлено 2026-04-06)
+## Consortium Structure
 
-Ограничения v1.0, устраняемые в следующей версии:
+| Partner | Country | Type | Role | Status |
+|---------|---------|------|------|--------|
+| Independent expert (J. Tkemaladze) | Georgia | Research | PI, Coordinator | ✅ Confirmed |
+| Giorgi Tsomaia | Georgia | Independent expert | Co-Investigator, Lead of WP2 and WP4 | ✅ Confirmed |
+| **Medical Consultant** | Georgia/EU | Clinical | Clinical validation, IRB, physician liaison | Vacant (in budget) |
+| **Technical Expert (Database Systems)** | Georgia/EU | Technical | ETL development, OMOP, PostgreSQL, HIS integration | Vacant (in budget) |
+| Aversi Clinic | Georgia | Clinical | Pilot site | Negotiations started |
+| GeoHospitals | Georgia | Clinical | Pilot site | Preliminary agreement |
+| Iashvili Children's Hospital | Georgia | Clinical | Pilot site | Negotiations started |
+| **EU Technical Partner — TBC** | EU | Technical | FL infrastructure, secure aggregation | Active search |
 
-| Ограничение v1.0 | Решение v2.0 | Приоритет |
-|-----------------|-------------|-----------|
-| Линейный учёт DP (консервативный) | **Rényi DP** — более плотные границы, поддержка сабсемплинга → меньше потерь AUC при том же ε | Высокий |
-| Оркестратор «честный но любопытный» | **SecAgg+ (полный)** — криптографическое маскирование; оркестратор видит только агрегат | Высокий |
-| Синхронные раунды | **Асинхронные раунды** — не все узлы должны участвовать одновременно | Средний |
-| Только логистическая регрессия | **Transformer-валидация** — deep learning с DP (feasibility study в 2026) | Средний |
-| Шепли при >20 узлах (медленно) | **Influence functions** — аппроксимация Шепли для >20 узлов | Средний |
-| Только GDPR упомянут | **Анализ GDPR Art. 22** — соответствие «праву на объяснение» через Shapley attribution | Низкий |
+### Potential EU Partners (as of April 2026)
 
----
+| Partner | Country | Contact status | Probability |
+|---------|---------|----------------|-------------|
+| DFKI (German Research Center for AI) | Germany | Inquiry sent April 1, 2026 | Medium |
+| Fraunhofer IAIS | Germany | Planned for week 15 | Low/Medium |
+| Saarland University (FL Lab) | Germany | Preliminary discussions | Medium |
+| Karolinska Institutet | Sweden | Backup option | Low |
 
-## V. Единая научная экосистема: Ze · CDATA · BioSense · FCLC
-
-### Обзор
-
-FCLC не самостоятельная платформа — это **валидационный слой** единой научной экосистемы, которая охватывает четыре взаимосвязанных проекта. Каждый проект решает отдельную задачу, но вместе они образуют замкнутый научный цикл: от теории до измерения, от предсказания до популяционной валидации.
-
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                       AIM ECOSYSTEM                                      │
-│                                                                          │
-│   Ze Theory         CDATA              BioSense          FCLC            │
-│  ──────────        ──────────         ──────────        ──────────       │
-│  Теоретическая  →  Механистическая →  Измерительный  → Популяционная    │
-│  основа            модель старения     инструмент        валидация        │
-│                                                                          │
-│  τ_Z, v*, χ_Ze     dD/dt, R²=0.84     χ_Ze(EEG/HRV/    AUC=0.742       │
-│  T/S events        32 параметра        VOC), AUC=0.715   N клиник        │
-│                                        nRF52840 Rust                     │
-└─────────────────────────────────────────────────────────────────────────┘
-```
+**Plan B:** If no EU partner is confirmed by April 20, 2026, the application will be submitted with one Georgian technical partner plus an explanation that EU coordination will be ensured through Horizon Europe guarantees.
 
 ---
 
-### Проект 1: Ze Vectors Theory — теоретический фундамент
+## Budget Estimate
 
-**Публичный репозиторий:** https://github.com/djabbat/Ze
+| Category | Estimate (€) |
+|-----------|--------------|
+| Legal preparation (DUA, IRB, memorandum, Data Steward) | 55,000 |
+| Medical Consultant (0.5 FTE, 12 months) | 60,000 |
+| Technical Expert (Database Systems) (1.0 FTE, 12 months) | 60,000 |
+| External Clinical Advisory Board | 20,000 |
+| Local node development (3–4 FTE, 12 months) | 280,000 |
+| Normalization and ETL (2 FTE, 12 months) | 120,000 |
+| Shapley value scoring and aggregation (2 FTE, 24 months) | 250,000 |
+| Federated learning and security (2 FTE, 24 months) | 250,000 |
+| WP3 — Independent cryptographic security audit (external firm) | 35,000 |
+| WP2 — External validation on eICU-CRD (independent dataset) | 25,000 |
+| Pilot clinic deployment (3–5) | 100,000 |
+| Coordination and management (2 FTE, 36 months) | 320,000 |
+| WP4 (Governance) | 220,000 |
+| Dissemination, communication, events | 130,000 |
+| Equipment, infrastructure | 120,000 |
+| Travel | 100,000 |
+| Contingency (10%) | 210,000 |
+| **Total** | **2,275,000** |
 
-Ze Theory (Tkemaladze) — информационно-теоретическая основа для описания любой системы, обрабатывающей информацию, включая биологическую. Формализм:
-
-```
-Ze = (H, ρ_Z, {M_i}, τ_Z, θ_Z)
-```
-
-- **H** — гильбертово пространство наблюдателя
-- **ρ_Z** — матрица плотности убеждений
-- **τ_Z ∈ ℕ** — собственное время (бюджет Ze-наблюдателя)
-- **v\*** = 0.45631 — теоретическая точка оптимальной сложности (инвариант)
-- **χ_Ze** = 1 − |v − v\*| / max(v\*, 1−v\*) — индекс старения / отклонения от оптимума
-
-**Динамика:**
-- T-событие (неожиданное): τ_Z(t+1) = τ_Z(t) − 1
-- S-событие (ожидаемое): τ_Z(t+1) = τ_Z(t)
-- Аксиома Z4: T-событие порождает дочернюю Ze-систему
-
-**Связь с экосистемой:** Ze предоставляет общий математический язык. CDATA использует T/S-динамику для описания повреждения центриоли. BioSense вычисляет χ_Ze из биосигналов. FCLC обучает модели, предсказывающие τ_Z-деплецию у пациентов.
-
-**Веб-симулятор (открытый):** https://djabbat.github.io/Ze — интерактивная визуализация Ze-динамики начиная с 4 первичных Ze-систем (от Планковской эпохи до настоящего времени).
-
----
-
-### Проект 2: CDATA — механистическая модель старения
-
-**Публичный репозиторий:** https://github.com/djabbat/CDATA-public
-
-CDATA (Centriolar Damage Accumulation Theory of Aging) — количественная теория, объясняющая старение как накопление повреждений в материнских центриолях стволовых клеток. Центральная формула:
-
-```
-dD/dt = α × ν(t) × (1 − Π(t)) × S(t) × (1 − P_A(t)) × M(t) × C(t)
-```
-
-| Символ | Смысл | Значение |
-|--------|-------|---------|
-| α | Базовое повреждение на деление | 0.0082 ± 0.0012 |
-| Π(t) | Защита молодости | Π₀ exp(−t/τ) + 0.1 |
-| P_A(t) | Точность асимметричного деления | P₀ exp(−β_A × D(t)) |
-| S(t) | SASP гормезис (нелинейный) | пик при SASP = 0.3 |
-
-**Валидация модели:**
-
-| Биомаркер | R² | P |
-|-----------|-----|---|
-| MCAI (5 компонентов) | **0.84** | < 0.001 |
-| 10-летняя смертность | 0.81 (AUC) | < 0.001 |
-| Эпигенетические часы | 0.91 | < 0.001 |
-| Слепое предсказание (итальянские долгожители) | Δ = 1.6 года | — |
-
-**Связь с экосистемой:**
-
-- **CDATA → Ze**: D(t) интерпретируется как истощение τ_Z в терминах Ze. Старение клетки = накопление T-событий → исчерпание τ_Z → смерть при τ_Z = 0.
-- **CDATA → BioSense**: χ_Ze из EEG/HRV является *измеримым прокси* D(t). Снижение χ_Ze указывает на прогрессирующее накопление центриолярного повреждения.
-- **CDATA → FCLC**: 5 фальсифицируемых предсказаний CDATA (O₂-зависимость лимита Хейфлика, центриоль-направленный ROS, ROCKi × O₂ взаимодействие) требуют *многоцентровой валидации* — именно это обеспечивает FCLC.
-
-**Архитектура симулятора (Rust, 8 крейтов):**
-```
-cell_dt_core/            — ECS, компоненты, 6 систем
-cell_dt_modules/
-├── mitochondrial/       — O₂-зависимый mito_shield
-├── inflammaging/        — SASP/DAMPs/cGAS-STING
-├── asymmetric_division/ — стохастическое наследование центриоли
-├── tissue_specific/     — 4 ткани (HSC, ISC, Muscle, Neural)
-└── aging_engine/        — интегратор
-cell_dt_validation/      — MCMC, 62 000 пациентов
-cell_dt_gui/             — egui интерфейс
-```
+*Note:* EIC Pathfinder allows budget up to €4M. The above estimate is baseline; with expanded consortium and scope, the budget may increase to €3–3.5M.
 
 ---
 
-### Проект 3: BioSense — измерительный инструмент
+## Risk Matrix
 
-**Публичный репозиторий (EEG-модуль):** https://github.com/djabbat/ze-eeg-validation
-
-BioSense — носимая мультисенсорная платформа для непрерывного измерения Ze-индексов старения по трём каналам:
-
-| Канал | Биомаркер | Формула | Валидация |
-|-------|-----------|---------|-----------|
-| ЭЭГ (25–35 Гц) | χ_Ze(EEG) | v = N_S/(N−1), χ_Ze = 1−\|v−v\*\|/max(v\*,1−v\*) | Cuban N=196, d=1.694, p<0.0001; Dortmund N=60, AUC=0.715 |
-| ВСР / RR | χ_Ze(HRV) | Ze-поток симпатика/парасимпатика с гистерезисом δ=0.1 | Планируется: PhysioNet, MIMIC-III |
-| VOC / ольфакция | χ_Ze(VOC) | Ze-динамика молекулярного профиля пота | Планируется: Q1–Q2 2027 |
-
-**Аппаратура (браслет):**
-- AFE: ADS1299 (8 каналов: 2 ЭЭГ + 2 ЭКГ)
-- MCU: nRF52840 — обработка сигнала на устройстве (Rust)
-- VOC: Bosch BME688 (e-nose, этап 1)
-- Передача: только χ_Ze-индексы по BLE; сырые данные — только по запросу
-- Автономность: 24 часа
-
-**Связь с экосистемой:**
-
-- **BioSense → FCLC**: BioSense — *первичный источник данных* для FCLC. Каждое устройство = локальный узел. χ_Ze(EEG/HRV/VOC) + возраст + клинические события → обезличенные агрегаты → обучение федеративной модели.
-- **BioSense → CDATA**: χ_Ze измеряет то, что CDATA предсказывает. Снижение χ_Ze от 0.87 (20–30 лет) до 0.71 (60+) соответствует нарастанию D(t) в CDATA. Это *перекрёстная валидация* через независимые методы измерения.
-- **BioSense → Ze**: χ_Ze — прямое эмпирическое воплощение теоретической точки v\*. Здоровая молодая система работает вблизи v\* = 0.45631; старение = отклонение от этого оптимума.
+| Risk | Probability | Impact | Mitigation | Owner |
+|------|-------------|--------|------------|-------|
+| Re-identification | Low | Critical | Multi-layer privacy stack + audit | Privacy Lead |
+| Gradient inversion | Medium | Critical | DP noise, min batch ≥32, robust aggregation | Technical Lead |
+| Data poisoning | Medium | High | Krum/median aggregation, reputation scoring, outlier detection | Technical Lead |
+| Bias | High | Medium | Distribution monitoring, stratified validation | Governance Board |
+| Label inconsistency | High | Medium | Quality scoring, clinician feedback, Medical Consultant | Clinical Lead |
+| Large participant dominance | Medium | Medium | Shapley value ensures fair marginal contribution assessment | Governance Board |
+| DUA delays | High | High | Start process 3 months before technical development; standard template; parallel negotiations | Legal Lead |
+| IRB delays | High | High | Parallel approval across clinics; Medical Consultant support; document templates | Legal Lead |
+| Participant dropout | Medium | Medium | Waiting list; backup participants; modular architecture allows flexible node connection/disconnection | Coordinator |
+| No medical Co-PI | Medium | High | Medical Consultant (0.5 FTE) + External Clinical Advisory Board | Coordinator |
+| Expert hiring delays | Medium | Medium | Start search at application stage; backup candidates | Coordinator |
+| Regulatory distrust | Medium | Critical | Engage regulators at pilot stage; legal memorandum; transparent documentation | Legal Lead |
+| Clinician distrust | High | Medium | Explainable models (SHAP, LIME); physician involvement in validation; pilot data demonstration | Clinical Lead |
+| HIS incompatibility | Medium | High | Modular adapters; FHIR support; file upload fallback; pre-audit infrastructure | Technical Lead |
+| No EU partner | Medium | Critical | Active search via DFKI, CLAIRE networks; letters of support by April 2026; Plan B documented | Coordinator |
 
 ---
 
-### Проект 4: FCLC — популяционная валидация
+## Roadmap v2.0 (Post-Pilot)
 
-FCLC собирает данные от носимых устройств (BioSense) и клиник по всему миру и обучает предиктивные модели без нарушения приватности. Это завершающий слой экосистемы — *доказательная сила в масштабе*.
+Limitations of v1.0 to be addressed in the next version:
 
-**Результаты на MIMIC-IV** (N=12 543, 5 федеративных узлов):
-- AUC = 0.742 ± 0.021 (с DP ε=2.0)
-- Free-rider обнаружен: Shapley = 0.089 < порог 0.0975 (p<0.001)
-- Gradient inversion: 0 успехов из 32 атак
-
----
-
-### Полный поток данных в экосистеме
-
-```
-┌──────────────────────────────────────────────────────────────────┐
-│                    ПАЦИЕНТ / УЧАСТНИК                             │
-│  24/7 носит BioSense браслет                                     │
-└──────────────────────┬───────────────────────────────────────────┘
-                       │ EEG, ЭКГ, VOC (непрерывно)
-                       ▼
-┌──────────────────────────────────────────────────────────────────┐
-│              BioSense Rust Core (на устройстве)                  │
-│  1. FFT → полоса 25–35 Гц                                        │
-│  2. v = N_S / (N−1)  →  χ_Ze вычисляется локально               │
-│  3. CDATA D(t) прогноз применяется локально                      │
-│  4. Результат: {χ_Ze(EEG), χ_Ze(HRV), χ_Ze(VOC), D_pred(t)}    │
-└──────────────────────┬───────────────────────────────────────────┘
-                       │ только агрегированные Ze-индексы (BLE)
-                       ▼
-┌──────────────────────────────────────────────────────────────────┐
-│           FCLC Локальный узел (смартфон / домашний шлюз)         │
-│  Слой 1: удаление идентификаторов       ← deident.rs            │
-│  Слой 2: k-анонимность (k ≥ 5)         ← kanon.rs               │
-│  Слой 3: локальное обучение на χ_Ze     ← training.rs            │
-│  Слой 4: DP-шум (ε=2.0)                ← dp.rs                  │
-│  Слой 5: SecAgg маскирование            ← secagg.rs              │
-└──────────────────────┬───────────────────────────────────────────┘
-                       │ только зашумлённые обновления весов модели
-                       ▼
-┌──────────────────────────────────────────────────────────────────┐
-│           FCLC Оркестратор                                        │
-│  FedProx агрегация → Krum-фильтрация → Shapley scoring          │
-│  Глобальная модель: χ_Ze + клин. данные → прогноз риска          │
-│  Валидация CDATA-предсказаний по N клиникам                      │
-└──────────────────────┬───────────────────────────────────────────┘
-                       │ улучшенные параметры CDATA
-                       ▼
-┌──────────────────────────────────────────────────────────────────┐
-│  Обратная связь в экосистему                                      │
-│  CDATA: пересмотр α, Π₀, τ на основе популяционных данных        │
-│  BioSense: обновление порогов χ_Ze для χ_Ze(HRV) и χ_Ze(VOC)    │
-│  Ze: эмпирическое уточнение v* по реальным биосигналам           │
-└──────────────────────────────────────────────────────────────────┘
-```
+| v1.0 Limitation | v2.0 Solution | Priority |
+|-----------------|-------------|----------|
+| Linear DP accounting (conservative) | **Rényi DP** ✅ implemented — tighter bounds, ~30–40× saving vs linear | High |
+| SecAgg+ LCG simulation | **SecAgg+ X25519 DH** ✅ implemented — Curve25519 (research-grade; audit in WP3), commit c9d3104 | High |
+| Synchronous rounds only | **Asynchronous FL (FedBuff)** — buffered async protocol; server aggregates when N_ready ≥ threshold; no straggler blocking (WP2) | High |
+| Logistic regression only | **`FederatedModel` trait** ✅ implemented — pluggable model API; planned: MLP for EEG time-series, ResNet-18 for imaging (WP3) | High |
+| ε(T) not surfaced to user | **ε(T) projection API** ✅ implemented — `epsilon_projection()` on both LinearDpAccountant and RdpAccountant; orchestrator enforces budget per-round | High |
+| No fairness evaluation | **Demographic Parity + Equalized Odds** ✅ implemented — `FairnessReport` with per-subgroup TPR/FPR, DP gap, EO gap; adversarial debiasing planned WP2 | Medium |
+| ε=2.0/round too high | **PATE roadmap** ✅ in CONCEPT — v1.5: ε→1.0 (DP-SGD recalibration); v2.0: PATE ε≈0.4 via teacher ensemble + noisy votes; `PateConfig::estimated_epsilon()` implemented | High |
+| Shapley slow for >20 nodes | **TMC-Shapley / Data-OOB** — more efficient approximations for >20 nodes (vs MC M=150) | Medium |
+| Byzantine tests: simple attack only | **Backdoor + label-flipping attack evaluation** — planned for external validation on heterogeneous data (WP2) | Medium |
+| GDPR only mentioned | **GDPR roles formalized** ✅ in COMPLIANCE.md — controller/processor matrix, DPA templates, DPIA requirement | Medium |
+| No data governance for FL gradients | **Gradient retention policy** — gradients discarded post-aggregation; GDPR "right to be forgotten" protocol for gradient-embedded data | Low |
 
 ---
 
-### Матрица синергий
+## Next Steps
 
-| Проект | Что даёт другим | Что получает от других |
-|--------|----------------|----------------------|
-| **Ze Theory** | Математический язык (v\*, χ_Ze, τ_Z, T/S); единая интерпретативная рамка | Эмпирическую валидацию через BioSense; популяционные данные через FCLC |
-| **CDATA** | Механистическую модель D(t); 5 фальсифицируемых предсказаний; MCMC-параметры | BioSense как измерительный инструмент D(t); FCLC как многоцентровую валидацию |
-| **BioSense** | Непрерывный поток данных 24/7; χ_Ze(EEG/HRV/VOC); узел FCLC на каждом устройстве | Ze-теорию как обоснование χ_Ze; CDATA как интерпретационную рамку снижения χ_Ze |
-| **FCLC** | Популяционную валидацию; статистическую мощность; конфиденциальность | BioSense как источник данных; CDATA как модель предсказания; Ze как теорию |
-
----
-
-### Публичные репозитории экосистемы
-
-| Проект | Публичный репозиторий | Приватный репозиторий | Содержимое публичного |
-|--------|----------------------|----------------------|----------------------|
-| **Ze Vectors Theory** | https://github.com/djabbat/Ze-public | https://github.com/djabbat/Ze-private | Теория, постулаты, Rust-симулятор, Phoenix веб-симулятор |
-| **CDATA** | https://github.com/djabbat/CDATA-public | https://github.com/djabbat/CDATA-private | Rust-симулятор (8 крейтов), валидационные скрипты, параметры |
-| **BioSense** | https://github.com/djabbat/BioSense-public | https://github.com/djabbat/BioSense-private | Python EEG/HRV/VOC-валидация, χ_Ze расчёт, аппаратные спецификации |
-| **FCLC** | https://github.com/djabbat/FCLC-public | https://github.com/djabbat/FCLC-private | Privacy stack, FedProx, Shapley scoring, OMOP CDM |
+| Deadline | Task | Status |
+|----------|------|--------|
+| **Week 1–2** | **Start recruiting Medical Consultant and Technical Expert; prepare job descriptions** | Planned |
+| **Week 1–2** | Start DUA and IRB process for pilot clinics (Aversi, GeoHospitals, Iashvili) | Launching |
+| **Week 2–3** | Prepare legal memorandum on Georgian PDPL and GDPR | Planned |
+| **Week 2–3** | Send inquiries to EU technical partners (DFKI, Fraunhofer, Saarland University) | Planned |
+| **Week 3–4** | Prepare letters of support from clinics | Planned |
+| **Week 4–5** | Prepare Part A and Part B of application | Planned |
+| **By May 12, 2026** | **Submit application** | |
 
 ---
 
-### Почему это беспрецедентно
-
-Ни один существующий федеративный медицинский проект (FeTS, MELLODDY, NVFlare, FATE) не имеет:
-
-1. **Единой теоретической основы** (Ze Theory) для интерпретации биосигналов, механизма старения и принципов федеративного обучения
-2. **Собственного измерительного инструмента** (BioSense) с открытой архитектурой и встроенным FL-узлом
-3. **Механистической модели старения** (CDATA, R² = 0.84) как движка предсказаний — вместо феноменологических корреляций
-4. **Замкнутого цикла**: теория → симулятор → измерение → федеративная валидация → пересмотр теории
-5. **Планетарного масштаба** через открытое носимое устройство: каждый человек с BioSense-браслетом — потенциальный узел FCLC
-
-Это не набор проектов — это **единая научная инфраструктура** для понимания и управления биологическим старением на уровне популяций.
-
----
-
-## Выбор инструмента финансирования
-
-**Рекомендованный инструмент: EIC Pathfinder Open**
-
-| Критерий | Соответствие |
-|----------|--------------|
-| Прорывная инновация | Сочетание федеративного обучения + безопасной агрегации + Shapley value стимулов + двухуровневой кооперативной модели управления — уникально |
-| TRL | 2–3 (текущий), по итогу пилота (12 месяцев) — TRL 4 |
-| Бюджет | До €4 млн — обосновано разработкой, развёртыванием, юридической подготовкой, координацией |
-| Консорциум | Грузия (ассоциированная страна) + минимум 2 EU партнёра (в процессе формирования) |
-| Дедлайн | 12 мая 2026 года |
-
----
-
-## Структура консорциума
-
-| Партнёр | Страна | Тип | Роль | Статус |
-|---------|--------|-----|------|--------|
-| Phasis Academy (J. Tkemaladze) | Грузия | Исследовательская | PI, Coordinator | ✅ Подтверждён |
-| Giorgi Tsomaia | Грузия | Независимый эксперт | Co-Investigator, Lead of WP2 (Biomedical Data Systems) and WP4 (Governance & Incentive Model) | ✅ Подтверждён |
-| **Medical Consultant** | Грузия/EU | Клиническая | Клиническая валидация, IRB, взаимодействие с врачами | Вакансия (включена в бюджет) |
-| **Technical Expert (Database Systems)** | Грузия/EU | Техническая | Разработка ETL, OMOP, PostgreSQL, интеграция с HIS | Вакансия (включена в бюджет) |
-| Aversi Clinic | Грузия | Клиническая | Пилотная площадка | Переговоры начаты |
-| GeoHospitals | Грузия | Клиническая | Пилотная площадка | Предварительное согласие |
-| Iashvili Children's Hospital | Грузия | Клиническая | Пилотная площадка | Переговоры начаты |
-| [EU Technical Partner — TBC] | EU | Техническая | FL инфраструктура, безопасная агрегация | Поиск активен |
-| [Pharma Partner — TBC] | EU/Грузия | Промышленная | Валидация, коммерциализация | Поиск активен |
-
----
-
-## Бюджетная оценка
-
-| Категория | Оценка (€) |
-|-----------|------------|
-| Юридическая подготовка (DUA, IRB, меморандум, Data Steward) | 55 000 |
-| Medical Consultant (0.5 FTE, 12 месяцев) | 60 000 |
-| Technical Expert (Database Systems) (1.0 FTE, 12 месяцев) | 60 000 |
-| External Clinical Advisory Board | 20 000 |
-| Разработка локального узла (3–4 FTE, 12 месяцев) | 280 000 |
-| Нормализация и ETL (2 FTE, 12 месяцев) | 120 000 |
-| Shapley value скоринг и агрегация (2 FTE, 24 месяца) | 250 000 |
-| Федеративное обучение и безопасность (2 FTE, 24 месяца) | 250 000 |
-| Развёртывание в пилотных клиниках (3–5) | 100 000 |
-| Координация и управление (2 FTE, 36 месяцев) | 320 000 |
-| WP4 (Governance) | 220 000 |
-| Диссеминация, коммуникация, мероприятия | 130 000 |
-| Оборудование, инфраструктура | 120 000 |
-| Командировки, поездки | 100 000 |
-| Непредвиденные (10%) | 210 000 |
-| **Итого** | **2 275 000** |
-
-*Примечание:* EIC Pathfinder допускает бюджет до €4 млн. Представленная оценка — базовая; при расширении консорциума и объёма работ бюджет может быть увеличен до €3–3.5 млн.
-
----
-
-## Следующие шаги
-
-| Срок | Задача | Статус |
-|------|--------|--------|
-| **Неделя 1–2** | **Начать поиск кандидатов на позиции Medical Consultant и Technical Expert; подготовить описание вакансий** | Запланировано |
-| **Неделя 1–2** | Начать процесс DUA и IRB для пилотных клиник (Aversi, GeoHospitals, Iashvili) | Запускается |
-| **Неделя 2–3** | Подготовить юридический меморандум по Georgian PDPL и GDPR | Запланировано |
-| **Неделя 2–3** | Направить запросы EU техническим партнёрам (DFKI, Fraunhofer, Saarland University) | Запланировано |
-| **Неделя 3–4** | Подготовить письма поддержки от клиник | Запланировано |
-| **Неделя 4–5** | Подготовить Part A и Part B заявки | Запланировано |
-| **До 12 мая 2026** | **Подача заявки** | |
-
----
-
-## Контакты
+## Contacts
 
 **Dr. Jaba Tkemaladze, MD** — Principal Investigator, Project Coordinator  
 Email: djabbat@gmail.com
@@ -947,5 +699,3 @@ Email: djabbat@gmail.com
 Email: gakelytemp@gmail.com
 
 ---
-
-*Версия 6.0 — заключительная. Документ прошёл полный цикл ревью и готов к подаче в EIC Pathfinder Open. Апрель 2026.*

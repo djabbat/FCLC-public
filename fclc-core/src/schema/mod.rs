@@ -112,10 +112,10 @@ impl OmopRecord {
         };
         let diag_year = self
             .diabetes_diagnosis_year
-            .map(|y| (y as f32 - 1960.0) / 65.0)
+            .map(|y| ((y as f32 - 1960.0) / 65.0).clamp(0.0, 1.0))
             .unwrap_or(0.0);
-        let hba1c = self.hba1c_last.map(|h| (h - 4.0) / 10.0).unwrap_or(0.0);
-        let bmi = self.bmi.map(|b| (b - 15.0) / 45.0).unwrap_or(0.0);
+        let hba1c = self.hba1c_last.map(|h| ((h - 4.0) / 10.0).clamp(0.0, 1.0)).unwrap_or(0.0);
+        let bmi = self.bmi.map(|b| ((b - 15.0) / 45.0).clamp(0.0, 1.0)).unwrap_or(0.0);
 
         vec![
             age,

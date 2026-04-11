@@ -18,12 +18,18 @@ defmodule FclcWebWeb.DashboardLive do
   @refresh_interval_ms 10_000
 
   @impl true
-  def mount(_params, _session, socket) do
+  def mount(_params, session, socket) do
     if connected?(socket) do
       :timer.send_interval(@refresh_interval_ms, self(), :refresh)
     end
 
-    {:ok, socket |> assign_defaults() |> load_data()}
+    # Check admin auth: session token must match FCLC_ADMIN_TOKEN env var.
+    # If the env var is unset, the action is disabled entirely.
+    admin_token = System.get_env("FCLC_ADMIN_TOKEN")
+    is_admin = is_binary(admin_token) and admin_token != "" and
+               Map.get(session, "admin_token") == admin_token
+
+    {:ok, socket |> assign_defaults() |> assign(:is_admin, is_admin) |> load_data()}
   end
 
   @impl true
@@ -33,11 +39,15 @@ defmodule FclcWebWeb.DashboardLive do
 
   @impl true
   def handle_event("trigger_round", _params, socket) do
-    case FclcClient.trigger_round() do
-      {:ok, _} ->
-        {:noreply, socket |> put_flash(:info, "Round triggered.") |> load_data()}
-      {:error, msg} ->
-        {:noreply, put_flash(socket, :error, "Failed: #{msg}")}
+    if socket.assigns.is_admin do
+      case FclcClient.trigger_round() do
+        {:ok, _} ->
+          {:noreply, socket |> put_flash(:info, "Round triggered.") |> load_data()}
+        {:error, msg} ->
+          {:noreply, put_flash(socket, :error, "Failed: #{msg}")}
+      end
+    else
+      {:noreply, put_flash(socket, :error, "Unauthorized: admin token required.")}
     end
   end
 
@@ -117,10 +127,18 @@ defmodule FclcWebWeb.DashboardLive do
                 Updated: <%= Calendar.strftime(@last_updated, "%H:%M:%S") %> UTC
               </p>
             <% end %>
-            <button phx-click="trigger_round"
-                    class="mt-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition">
-              ▶ Trigger Round
-            </button>
+            <%= if @is_admin do %>
+              <button phx-click="trigger_round"
+                      class="mt-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition">
+                ▶ Trigger Round
+              </button>
+            <% else %>
+              <button disabled
+                      class="mt-2 px-4 py-2 bg-gray-300 text-gray-500 text-sm rounded-lg cursor-not-allowed"
+                      title="Admin token required">
+                ▶ Trigger Round
+              </button>
+            <% end %>
           </div>
         </div>
 

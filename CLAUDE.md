@@ -1,12 +1,21 @@
 
 # CLAUDE.md — FCLC (Federated Clinical Learning Cooperative)
 
+## Ecosystem Context
+
+**FCLC является подпроектом CommonHealth Ecosystem.**
+**Parent:** `~/Desktop/CommonHealth/` — центральная платформа экосистемы долголетия
+**Git:** `djabbat/CommonHealth` (монорепозиторий)
+**Role:** FCLC — privacy-инфраструктура; CommonHealth использует fclc-core для DP, DUA шаблонов, криптоподписи χ_Ze. FCLC обеспечивает сбор данных о болезнях и выздоровлении через пациентов как заинтересованную сторону.
+
+---
+
 ## Project Identity
 
 **FCLC** — Federated Clinical Learning Cooperative
 **Purpose:** Privacy-preserving federated learning platform for clinical AI
 **Version:** 0.1.0-alpha | **CONCEPT v6.0** | **EIC Pathfinder deadline: 12 May 2026**
-**Location:** `~/Desktop/FCLC/`
+**Location:** `~/Desktop/CommonHealth/FCLC/`
 **Repo:** private `djabbat/FCLC`
 
 ---

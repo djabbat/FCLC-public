@@ -139,6 +139,20 @@ impl RdpAccountant {
         let rdp_total = self.current_epsilon();
         (linear_total - rdp_total).max(0.0)
     }
+
+    /// Project ε(T) after `additional_rounds` more rounds with same sigma and sampling_rate.
+    ///
+    /// Critical for R6 transparency: shows how ε grows with training duration.
+    /// Returns projected (ε, delta) after spending `additional_rounds` more rounds.
+    ///
+    /// Example: 100 rounds, sigma=0.89, q=0.013 → ε ≈ 3.8 (vs 200.0 under linear composition).
+    pub fn epsilon_projection(&self, sigma: f64, sampling_rate: f64, additional_rounds: u32) -> f64 {
+        let mut projected = self.clone();
+        for _ in 0..additional_rounds {
+            let _ = projected.spend_round(sigma, sampling_rate);
+        }
+        projected.current_epsilon()
+    }
 }
 
 /// RDP cost per step for the subsampled Gaussian mechanism (Mironov 2017 §3).

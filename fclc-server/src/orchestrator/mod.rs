@@ -154,7 +154,8 @@ pub async fn force_aggregate(state: Arc<AppState>) -> Result<bool> {
 /// 5. Update global model.
 /// 6. Compute Shapley scores.
 /// 7. Persist round result and scores to DB.
-/// 8. Increment `current_round`.
+/// 8. Append tamper-evident audit log entry (hash chain).
+/// 9. Push to in-memory round history + increment `current_round`.
 async fn run_aggregation(state: Arc<AppState>) -> Result<()> {
     // ── 1. Drain pending updates ──────────────────────────────────────────────
     let updates: Vec<(Uuid, UpdatePayload)> = {
@@ -366,7 +367,7 @@ async fn run_aggregation(state: Arc<AppState>) -> Result<()> {
         }
     }
 
-    // ── 10. Push to in-memory round history + increment round counter ─────────
+    // ── 9. Push to in-memory round history + increment round counter ──────────
     {
         let mut history = state.round_history.write().await;
         history.push(RoundResult {
