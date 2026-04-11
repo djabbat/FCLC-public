@@ -20,3 +20,12 @@ e-mails/
 # New .md files must be added explicitly with: git add -f file.md
 *.md
 !README.md
+
+# Rust build artifacts
+target/
+**/target/
+Cargo.lock
+**/Cargo.lock
+
+# Articles (private only — force-add with git add -f)
+articles/
